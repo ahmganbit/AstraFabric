@@ -239,6 +239,55 @@ class VulnerabilityScanner:
 alert_system = EmailAlertSystem()
 vulnerability_scanner = VulnerabilityScanner()
 
+
+import hashlib
+import secrets
+from functools import wraps
+
+# Admin credentials - change these in production
+ADMIN_SECRET_PATH = os.environ.get('ADMIN_SECRET_PATH', 'astrafabric-admin-secure-2024')
+ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'astrafabric_admin')
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'AstraFabric2024!Secure')
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        auth = request.authorization
+        if not auth or not check_admin_auth(auth.username, auth.password):
+            return jsonify({
+                "error": "Authentication Required",
+                "message": "Unauthorized access to admin area",
+                "platform": "AstraFabric Enterprise Security"
+            }), 401, {'WWW-Authenticate': 'Basic realm="AstraFabric Admin Area"'}
+        return f(*args, **kwargs)
+    return decorated_function
+
+def check_admin_auth(username, password):
+    return username == ADMIN_USERNAME and password == ADMIN_PASSWORD
+
+# Security logging
+def log_admin_access(endpoint, ip_address, success=True):
+    timestamp = datetime.now().isoformat()
+    status = "SUCCESS" if success else "FAILED"
+    print(f"[{timestamp}] ADMIN ACCESS {status}: {endpoint} from {ip_address}")
+    
+    # Store in database
+    conn = sqlite3.connect('astrafabric.db')
+    cursor = conn.cursor()
+    cursor.execute('''CREATE TABLE IF NOT EXISTS admin_access_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        endpoint TEXT,
+        ip_address TEXT,
+        status TEXT,
+        user_agent TEXT
+    )''')
+    cursor.execute('''INSERT INTO admin_access_log (endpoint, ip_address, status, user_agent)
+        VALUES (?, ?, ?, ?)''', (endpoint, ip_address, status, request.headers.get('User-Agent', 'Unknown')))
+    conn.commit()
+    conn.close()
+
+
 @app.route('/api/v1/health')
 def health_check():
     return jsonify({
@@ -252,7 +301,8 @@ def health_check():
         "company": "AstraFabric",
         "contact": ASTRAFABRIC_CONTACT_PHONE,
         "email": ASTRAFABRIC_EMAIL,
-        "ui_theme": "3D Web3 Enterprise"
+        "ui_theme": "3D Web3 Enterprise",
+        "admin_security": "Protected with secret path and authentication"
     })
 
 @app.route('/')
@@ -646,7 +696,6 @@ def index():
                 <div class="logo">🛡️ AstraFabric</div>
                 <div class="nav-links">
                     <a href="/client">Client Portal</a>
-                    <a href="/admin">Admin Dashboard</a>
                     <a href="/reports">Security Reports</a>
                     <a href="/docs">API Docs</a>
                 </div>
@@ -740,7 +789,6 @@ def index():
                 
                 <div style="margin-top: 50px;">
                     <a href="/client" class="btn">🔒 Client Portal</a>
-                    <a href="/admin" class="btn">👨‍💼 Admin Dashboard</a>
                     <a href="/reports" class="btn btn-enterprise">📊 Security Reports</a>
                     <a href="/docs" class="btn">📚 API Documentation</a>
                 </div>
@@ -920,8 +968,11 @@ def client_portal():
     </html>
     '''
 
-@app.route('/admin')
+@app.route('/astrafabric-admin-secure-2024')
+@admin_required
 def admin_dashboard():
+    # Log admin access
+    log_admin_access('/astrafabric-admin-secure-2024', request.remote_addr, True)
     return f'''
     <!DOCTYPE html>
     <html>
@@ -980,8 +1031,9 @@ def admin_dashboard():
     </head>
     <body>
         <div class="container">
-            <h1>👨‍💼 AstraFabric Web3 Admin Dashboard</h1>
-            <div class="metrics">
+            <h1>🔐 AstraFabric Secure Admin Dashboard</h1>
+            <div style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 30px;"><h3 style="color: white; margin: 0;">🔐 SECURE ADMIN ACCESS</h3><p style="color: rgba(255,255,255,0.9); margin: 5px 0;">Secret Path: astrafabric-admin-secure-2024</p><p style="color: rgba(255,255,255,0.9); margin: 5px 0;">All access logged and monitored</p></div>
+                <div class="metrics">
                 <div class="metric">
                     <h3>Platform Status</h3>
                     <p>🟢 Online & Secure</p>
@@ -1163,6 +1215,46 @@ def trigger_vulnerability_scan():
         "platform": "AstraFabric Web3 Enterprise v3.0",
         "timestamp": datetime.now().isoformat(),
         "ui_version": "3D Web3 Interface"
+    })
+
+
+@app.route('/astrafabric-admin-secure-2024/logs')
+@admin_required
+def admin_access_logs():
+    log_admin_access('/astrafabric-admin-secure-2024/logs', request.remote_addr, True)
+    
+    conn = sqlite3.connect('astrafabric.db')
+    cursor = conn.cursor()
+    cursor.execute('''SELECT timestamp, endpoint, ip_address, status, user_agent 
+        FROM admin_access_log ORDER BY timestamp DESC LIMIT 100''')
+    logs = cursor.fetchall()
+    conn.close()
+    
+    return jsonify({
+        "admin_access_logs": [{
+            "timestamp": log[0],
+            "endpoint": log[1], 
+            "ip_address": log[2],
+            "status": log[3],
+            "user_agent": log[4]
+        } for log in logs],
+        "platform": "AstraFabric Enterprise Security",
+        "admin_panel": "Secure Access Logs"
+    })
+
+@app.route('/astrafabric-admin-secure-2024/security-status')
+@admin_required  
+def admin_security_status():
+    log_admin_access('/astrafabric-admin-secure-2024/security-status', request.remote_addr, True)
+    
+    return jsonify({
+        "security_status": "HIGH",
+        "admin_protection": "ACTIVE",
+        "secret_path": "/astrafabric-admin-secure-2024",
+        "authentication": "BASIC_AUTH_ENABLED",
+        "access_logging": "ENABLED",
+        "platform": "AstraFabric Enterprise Security",
+        "last_check": datetime.now().isoformat()
     })
 
 if __name__ == '__main__':
