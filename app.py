@@ -19,7 +19,7 @@ app.config['ENV'] = 'production'
 app.config['DEBUG'] = False
 
 # Environment variables
-ASTRAFABRIC_CONTACT_PHONE = os.environ.get('ASTRAFABRIC_CONTACT_PHONE', '+2349043839065')
++234 908 482 4238 = os.environ.get('+234 908 482 4238', '+2349043839065')
 ASTRAFABRIC_WHATSAPP_1 = os.environ.get('ASTRAFABRIC_WHATSAPP_1', '+2349084824238')
 ASTRAFABRIC_WHATSAPP_2 = os.environ.get('ASTRAFABRIC_WHATSAPP_2', '+2349064376043')
 ASTRAFABRIC_EMAIL = os.environ.get('ASTRAFABRIC_EMAIL', 'contact@astrafabric.com')
@@ -161,7 +161,7 @@ class EmailAlertSystem:
                         </div>
                     </div>
                     <div style="background: #1e3a8a; color: white; padding: 20px; text-align: center;">
-                        <p>📱 Support: {ASTRAFABRIC_CONTACT_PHONE}</p>
+                        <p>📱 Support: +234 908 482 4238 (WhatsApp)</p>
                         <p>💬 WhatsApp: {ASTRAFABRIC_WHATSAPP_1} | {ASTRAFABRIC_WHATSAPP_2}</p>
                         <p>✉️ Email: {ASTRAFABRIC_EMAIL}</p>
                     </div>
@@ -240,6 +240,299 @@ alert_system = EmailAlertSystem()
 vulnerability_scanner = VulnerabilityScanner()
 
 
+import requests
+import hmac
+import hashlib
+import json
+from datetime import datetime, timedelta
+
+# Payment Gateway Configuration
+FLUTTERWAVE_PUBLIC_KEY = os.environ.get('FLUTTERWAVE_PUBLIC_KEY', '')
+FLUTTERWAVE_SECRET_KEY = os.environ.get('FLUTTERWAVE_SECRET_KEY', '')
+PAYSTACK_PUBLIC_KEY = os.environ.get('PAYSTACK_PUBLIC_KEY', '')
+PAYSTACK_SECRET_KEY = os.environ.get('PAYSTACK_SECRET_KEY', '')
+NOWPAYMENTS_API_KEY = os.environ.get('NOWPAYMENTS_API_KEY', '')
+NOWPAYMENTS_IPN_SECRET = os.environ.get('NOWPAYMENTS_IPN_SECRET', '')
+
+# Subscription Plans
+SUBSCRIPTION_PLANS = {
+    'essential': {
+        'name': 'Essential Autopilot',
+        'price_usd': 199,
+        'price_ngn': 199 * 1600,  # Approximate NGN rate
+        'features': ['24/7 Monitoring', 'Email Alerts', 'Basic Reports', '3D Dashboard', 'API Access']
+    },
+    'professional': {
+        'name': 'Professional Autopilot', 
+        'price_usd': 399,
+        'price_ngn': 399 * 1600,
+        'features': ['Everything in Essential', 'Vulnerability Scanning', 'Advanced Reports', 'AI Intelligence', 'Priority Support']
+    },
+    'enterprise': {
+        'name': 'Enterprise Autopilot',
+        'price_usd': 799, 
+        'price_ngn': 799 * 1600,
+        'features': ['Everything in Professional', 'Custom Integrations', 'White-label', 'Dedicated Manager', '24/7 WhatsApp Support']
+    }
+}
+
+class PaymentGateway:
+    def __init__(self):
+        self.init_payment_db()
+    
+    def init_payment_db(self):
+        conn = sqlite3.connect('astrafabric.db')
+        cursor = conn.cursor()
+        
+        # Subscriptions table
+        cursor.execute('''CREATE TABLE IF NOT EXISTS subscriptions (
+            id TEXT PRIMARY KEY,
+            client_email TEXT NOT NULL,
+            client_name TEXT NOT NULL,
+            plan_type TEXT NOT NULL,
+            payment_method TEXT NOT NULL,
+            amount_usd REAL NOT NULL,
+            amount_local REAL NOT NULL,
+            currency TEXT NOT NULL,
+            status TEXT DEFAULT 'pending',
+            created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+            expires_date DATETIME,
+            gateway_reference TEXT,
+            webhook_data TEXT
+        )''')
+        
+        # Payment transactions table
+        cursor.execute('''CREATE TABLE IF NOT EXISTS payment_transactions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            subscription_id TEXT,
+            transaction_reference TEXT,
+            gateway TEXT NOT NULL,
+            amount REAL NOT NULL,
+            currency TEXT NOT NULL,
+            status TEXT NOT NULL,
+            created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+            webhook_data TEXT,
+            FOREIGN KEY (subscription_id) REFERENCES subscriptions (id)
+        )''')
+        
+        conn.commit()
+        conn.close()
+    
+    def create_flutterwave_payment(self, plan_type, client_email, client_name, currency='USD'):
+        plan = SUBSCRIPTION_PLANS.get(plan_type)
+        if not plan:
+            return None
+            
+        amount = plan['price_usd'] if currency == 'USD' else plan['price_ngn']
+        subscription_id = f"astrafabric_{plan_type}_{int(datetime.now().timestamp())}"
+        
+        payload = {
+            "tx_ref": subscription_id,
+            "amount": amount,
+            "currency": currency,
+            "redirect_url": f"{ASTRAFABRIC_DOMAIN}/payment/callback",
+            "payment_options": "card,banktransfer,ussd,mobilemoney",
+            "customer": {
+                "email": client_email,
+                "name": client_name
+            },
+            "customizations": {
+                "title": f"AstraFabric {plan['name']}",
+                "description": f"Monthly subscription for {plan['name']} security monitoring",
+                "logo": f"{ASTRAFABRIC_DOMAIN}/static/logo.png"
+            },
+            "meta": {
+                "plan_type": plan_type,
+                "subscription_id": subscription_id
+            }
+        }
+        
+        headers = {
+            "Authorization": f"Bearer {FLUTTERWAVE_SECRET_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        try:
+            response = requests.post('https://api.flutterwave.com/v3/payments', 
+                                   json=payload, headers=headers)
+            data = response.json()
+            
+            if data.get('status') == 'success':
+                # Store subscription record
+                self.store_subscription(subscription_id, client_email, client_name, 
+                                      plan_type, 'flutterwave', amount, currency)
+                return {
+                    'status': 'success',
+                    'payment_url': data['data']['link'],
+                    'subscription_id': subscription_id
+                }
+            return {'status': 'error', 'message': data.get('message', 'Payment creation failed')}
+            
+        except Exception as e:
+            print(f"Flutterwave payment error: {str(e)}")
+            return {'status': 'error', 'message': 'Payment gateway error'}
+    
+    def create_nowpayments_invoice(self, plan_type, client_email, client_name):
+        plan = SUBSCRIPTION_PLANS.get(plan_type)
+        if not plan:
+            return None
+            
+        subscription_id = f"astrafabric_{plan_type}_{int(datetime.now().timestamp())}"
+        
+        payload = {
+            "price_amount": plan['price_usd'],
+            "price_currency": "USD",
+            "pay_currency": "btc",  # Bitcoin as default, user can choose others
+            "ipn_callback_url": f"{ASTRAFABRIC_DOMAIN}/payment/nowpayments/webhook",
+            "order_id": subscription_id,
+            "order_description": f"AstraFabric {plan['name']} - Monthly Subscription"
+        }
+        
+        headers = {
+            "x-api-key": NOWPAYMENTS_API_KEY,
+            "Content-Type": "application/json"
+        }
+        
+        try:
+            response = requests.post('https://api.nowpayments.io/v1/invoice', 
+                                   json=payload, headers=headers)
+            data = response.json()
+            
+            if response.status_code == 200:
+                # Store subscription record
+                self.store_subscription(subscription_id, client_email, client_name,
+                                      plan_type, 'nowpayments', plan['price_usd'], 'USD')
+                return {
+                    'status': 'success',
+                    'payment_url': data['invoice_url'],
+                    'subscription_id': subscription_id,
+                    'invoice_id': data['id']
+                }
+            return {'status': 'error', 'message': 'Crypto payment creation failed'}
+            
+        except Exception as e:
+            print(f"NowPayments error: {str(e)}")
+            return {'status': 'error', 'message': 'Crypto payment gateway error'}
+    
+    def create_paystack_payment(self, plan_type, client_email, client_name):
+        plan = SUBSCRIPTION_PLANS.get(plan_type)
+        if not plan:
+            return None
+            
+        subscription_id = f"astrafabric_{plan_type}_{int(datetime.now().timestamp())}"
+        
+        payload = {
+            "reference": subscription_id,
+            "amount": plan['price_ngn'] * 100,  # Paystack uses kobo
+            "email": client_email,
+            "currency": "NGN",
+            "callback_url": f"{ASTRAFABRIC_DOMAIN}/payment/paystack/callback",
+            "metadata": {
+                "plan_type": plan_type,
+                "subscription_id": subscription_id,
+                "customer_name": client_name
+            }
+        }
+        
+        headers = {
+            "Authorization": f"Bearer {PAYSTACK_SECRET_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        try:
+            response = requests.post('https://api.paystack.co/transaction/initialize',
+                                   json=payload, headers=headers)
+            data = response.json()
+            
+            if data.get('status'):
+                # Store subscription record
+                self.store_subscription(subscription_id, client_email, client_name,
+                                      plan_type, 'paystack', plan['price_ngn'], 'NGN')
+                return {
+                    'status': 'success',
+                    'payment_url': data['data']['authorization_url'],
+                    'subscription_id': subscription_id
+                }
+            return {'status': 'error', 'message': data.get('message', 'Payment creation failed')}
+            
+        except Exception as e:
+            print(f"Paystack payment error: {str(e)}")
+            return {'status': 'error', 'message': 'Payment gateway error'}
+    
+    def store_subscription(self, subscription_id, email, name, plan_type, payment_method, amount, currency):
+        conn = sqlite3.connect('astrafabric.db')
+        cursor = conn.cursor()
+        
+        expires_date = datetime.now() + timedelta(days=30)  # Monthly subscription
+        
+        cursor.execute('''INSERT OR REPLACE INTO subscriptions 
+            (id, client_email, client_name, plan_type, payment_method, amount_usd, amount_local, currency, expires_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
+            (subscription_id, email, name, plan_type, payment_method, 
+             SUBSCRIPTION_PLANS[plan_type]['price_usd'], amount, currency, expires_date))
+        
+        conn.commit()
+        conn.close()
+    
+    def verify_flutterwave_payment(self, transaction_id):
+        headers = {"Authorization": f"Bearer {FLUTTERWAVE_SECRET_KEY}"}
+        
+        try:
+            response = requests.get(f'https://api.flutterwave.com/v3/transactions/{transaction_id}/verify',
+                                  headers=headers)
+            data = response.json()
+            
+            if data.get('status') == 'success' and data['data']['status'] == 'successful':
+                return self.activate_subscription(data['data']['tx_ref'], 'flutterwave', data)
+            return False
+            
+        except Exception as e:
+            print(f"Flutterwave verification error: {str(e)}")
+            return False
+    
+    def activate_subscription(self, subscription_id, gateway, webhook_data):
+        conn = sqlite3.connect('astrafabric.db')
+        cursor = conn.cursor()
+        
+        # Update subscription status
+        cursor.execute('''UPDATE subscriptions SET status = 'active', webhook_data = ? 
+                         WHERE id = ?''', (json.dumps(webhook_data), subscription_id))
+        
+        # Log transaction
+        cursor.execute('''INSERT INTO payment_transactions 
+            (subscription_id, transaction_reference, gateway, amount, currency, status, webhook_data)
+            VALUES (?, ?, ?, ?, ?, ?, ?)''',
+            (subscription_id, webhook_data.get('id', ''), gateway, 
+             webhook_data.get('amount', 0), webhook_data.get('currency', ''),
+             'successful', json.dumps(webhook_data)))
+        
+        conn.commit()
+        conn.close()
+        
+        # Send welcome email
+        self.send_welcome_email(subscription_id)
+        return True
+    
+    def send_welcome_email(self, subscription_id):
+        conn = sqlite3.connect('astrafabric.db')
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM subscriptions WHERE id = ?', (subscription_id,))
+        subscription = cursor.fetchone()
+        conn.close()
+        
+        if subscription:
+            plan = SUBSCRIPTION_PLANS[subscription[3]]  # plan_type
+            alert_system.send_alert(
+                subscription[1],  # client_email
+                f"Welcome to AstraFabric {plan['name']}!",
+                f"Your subscription is now active. You have access to: {', '.join(plan['features'])}",
+                'medium'
+            )
+
+payment_gateway = PaymentGateway()
+
+
+
 import hashlib
 import secrets
 from functools import wraps
@@ -299,7 +592,7 @@ def health_check():
         "features": ["3D Web3 UI", "Email Alerts", "Vulnerability Scanning", "Advanced Reporting"],
         "timestamp": datetime.now().isoformat(),
         "company": "AstraFabric",
-        "contact": ASTRAFABRIC_CONTACT_PHONE,
+        "contact": +234 908 482 4238,
         "email": ASTRAFABRIC_EMAIL,
         "ui_theme": "3D Web3 Enterprise",
         "admin_security": "Protected with secret path and authentication"
@@ -775,7 +1068,7 @@ def index():
                 <div class="contact-grid">
                     <div class="contact-item">
                         <h4>📞 Enterprise Sales</h4>
-                        <p><strong>{ASTRAFABRIC_CONTACT_PHONE}</strong></p>
+                        <p><strong>+234 908 482 4238 (WhatsApp)</strong></p>
                     </div>
                     <div class="contact-item">
                         <h4>💬 WhatsApp Business</h4>
@@ -788,6 +1081,7 @@ def index():
                 </div>
                 
                 <div style="margin-top: 50px;">
+                    <a href="/subscribe" class="btn btn-enterprise">💳 Subscribe Now</a>
                     <a href="/client" class="btn">🔒 Client Portal</a>
                     <a href="/reports" class="btn btn-enterprise">📊 Security Reports</a>
                     <a href="/docs" class="btn">📚 API Documentation</a>
@@ -960,7 +1254,7 @@ def client_portal():
         </div>
         
         <div class="footer">
-            <p>📱 24/7 Support: <strong>{ASTRAFABRIC_CONTACT_PHONE}</strong></p>
+            <p>📱 24/7 Support: <strong>+234 908 482 4238 (WhatsApp)</strong></p>
             <p>💬 WhatsApp: {ASTRAFABRIC_WHATSAPP_1} | {ASTRAFRABRIC_WHATSAPP_2}</p>
             <p>✉️ Email: <strong>{ASTRAFABRIC_EMAIL}</strong></p>
         </div>
@@ -1056,7 +1350,7 @@ def admin_dashboard():
                 </div>
                 <div class="metric">
                     <h3>Support</h3>
-                    <p>{ASTRAFABRIC_CONTACT_PHONE}</p>
+                    <p>+234 908 482 4238 (WhatsApp)</p>
                 </div>
             </div>
         </div>
@@ -1079,7 +1373,7 @@ def security_reports(report_type='overview'):
                 "medium_vulnerabilities": 3,
                 "low_vulnerabilities": 5
             },
-            "contact": ASTRAFABRIC_CONTACT_PHONE,
+            "contact": +234 908 482 4238,
             "ui_version": "3D Web3 Interface"
         })
     elif report_type == 'compliance':
@@ -1093,7 +1387,7 @@ def security_reports(report_type='overview'):
                 "ISO_27001": {"compliance_score": 96, "status": "compliant"},
                 "GDPR": {"compliance_score": 97, "status": "compliant"}
             },
-            "contact": ASTRAFABRIC_CONTACT_PHONE,
+            "contact": +234 908 482 4238,
             "ui_version": "3D Web3 Interface"
         })
     else:
@@ -1103,7 +1397,7 @@ def security_reports(report_type='overview'):
             "platform": "AstraFabric Web3 Enterprise v3.0",
             "monitoring_status": "24/7 Active",
             "features": ["3D Web3 UI", "Email Alerts", "Vulnerability Scanning", "Advanced Reporting"],
-            "contact": ASTRAFABRIC_CONTACT_PHONE,
+            "contact": +234 908 482 4238,
             "ui_version": "3D Web3 Interface"
         })
 
@@ -1172,7 +1466,7 @@ def api_docs():
             </div>
             
             <div style="text-align: center; margin-top: 50px;">
-                <p>📱 Support: <strong>{ASTRAFABRIC_CONTACT_PHONE}</strong></p>
+                <p>📱 Support: <strong>+234 908 482 4238 (WhatsApp)</strong></p>
                 <p>✉️ Email: <strong>{ASTRAFABRIC_EMAIL}</strong></p>
             </div>
         </div>
@@ -1256,6 +1550,717 @@ def admin_security_status():
         "platform": "AstraFabric Enterprise Security",
         "last_check": datetime.now().isoformat()
     })
+
+
+@app.route('/subscribe')
+def subscription_page():
+    return f'''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>AstraFabric Enterprise Subscription</title>
+        <link rel="icon" type="image/x-icon" href="/favicon.ico">
+        <style>
+            body {{ 
+                font-family: Arial, sans-serif; 
+                margin: 0; 
+                background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+                color: white; 
+                min-height: 100vh;
+                padding: 20px;
+            }}
+            
+            .container {{ 
+                max-width: 1200px; 
+                margin: 0 auto; 
+            }}
+            
+            h1 {{
+                text-align: center;
+                font-size: 3em;
+                background: linear-gradient(45deg, #3b82f6, #8b5cf6);
+                background-clip: text;
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                margin-bottom: 50px;
+            }}
+            
+            .plans {{ 
+                display: grid; 
+                grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); 
+                gap: 40px; 
+                margin: 50px 0;
+            }}
+            
+            .plan {{ 
+                background: linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(51, 65, 85, 0.6));
+                padding: 40px; 
+                border-radius: 20px; 
+                text-align: center;
+                border: 1px solid rgba(59, 130, 246, 0.3);
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+                transform: perspective(1000px) rotateX(0deg);
+                transition: all 0.4s ease;
+            }}
+            
+            .plan:hover {{
+                transform: perspective(1000px) rotateX(10deg) translateZ(20px);
+                border-color: rgba(59, 130, 246, 0.6);
+                box-shadow: 0 30px 80px rgba(59, 130, 246, 0.2);
+            }}
+            
+            .plan.featured {{ 
+                background: linear-gradient(145deg, #3b82f6, #1e3a8a);
+                transform: scale(1.05);
+            }}
+            
+            .price {{ 
+                font-size: 3em; 
+                font-weight: bold; 
+                margin: 20px 0;
+                color: #3b82f6;
+            }}
+            
+            .plan.featured .price {{
+                color: white;
+            }}
+            
+            .features {{
+                text-align: left;
+                margin: 30px 0;
+            }}
+            
+            .features li {{
+                margin: 10px 0;
+                list-style: none;
+            }}
+            
+            .payment-methods {{
+                display: flex;
+                justify-content: center;
+                gap: 15px;
+                margin: 30px 0;
+                flex-wrap: wrap;
+            }}
+            
+            .payment-btn {{
+                background: linear-gradient(45deg, #3b82f6, #1e40af);
+                color: white;
+                padding: 12px 25px;
+                border: none;
+                border-radius: 10px;
+                cursor: pointer;
+                font-weight: bold;
+                transition: all 0.3s ease;
+                text-decoration: none;
+                display: inline-block;
+            }}
+            
+            .payment-btn:hover {{
+                background: linear-gradient(45deg, #2563eb, #1d4ed8);
+                transform: translateY(-2px);
+                box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);
+            }}
+            
+            .payment-btn.crypto {{
+                background: linear-gradient(45deg, #f59e0b, #d97706);
+            }}
+            
+            .payment-btn.crypto:hover {{
+                background: linear-gradient(45deg, #f59e0b, #b45309);
+            }}
+            
+            .payment-btn.naira {{
+                background: linear-gradient(45deg, #10b981, #059669);
+            }}
+            
+            .payment-btn.naira:hover {{
+                background: linear-gradient(45deg, #0d9488, #047857);
+            }}
+            
+            .form-group {{
+                margin: 20px 0;
+                text-align: left;
+            }}
+            
+            .form-group input {{
+                width: 100%;
+                padding: 12px;
+                border: 1px solid rgba(59, 130, 246, 0.3);
+                border-radius: 8px;
+                background: rgba(30, 41, 59, 0.8);
+                color: white;
+                font-size: 16px;
+            }}
+            
+            .form-group label {{
+                display: block;
+                margin-bottom: 8px;
+                color: #cbd5e1;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🛡️ Subscribe to AstraFabric Enterprise</h1>
+            
+            <div class="plans">
+                <div class="plan">
+                    <h3>Essential Autopilot</h3>
+                    <div class="price">$199<span style="font-size: 0.4em;">/month</span></div>
+                    <ul class="features">
+                        <li>✅ 24/7 Autonomous Monitoring</li>
+                        <li>✅ Real-time Email Alerts</li>
+                        <li>✅ Basic Security Reports</li>
+                        <li>✅ 3D Web3 Dashboard</li>
+                        <li>✅ API Access</li>
+                        <li>✅ Email Support</li>
+                    </ul>
+                    <div class="form-group">
+                        <label>Your Name:</label>
+                        <input type="text" id="name-essential" placeholder="Enter your full name">
+                    </div>
+                    <div class="form-group">
+                        <label>Your Email:</label>
+                        <input type="email" id="email-essential" placeholder="Enter your email">
+                    </div>
+                    <div class="payment-methods">
+                        <button class="payment-btn" onclick="subscribe('essential', 'flutterwave')">💳 Pay with Card/Bank</button>
+                        <button class="payment-btn crypto" onclick="subscribe('essential', 'crypto')">₿ Pay with Crypto</button>
+                        <button class="payment-btn naira" onclick="subscribe('essential', 'paystack')">₦ Pay in Naira</button>
+                    </div>
+                </div>
+                
+                <div class="plan featured">
+                    <h3>Professional Autopilot</h3>
+                    <div class="price">$399<span style="font-size: 0.4em;">/month</span></div>
+                    <ul class="features">
+                        <li>✅ Everything in Essential</li>
+                        <li>✅ Advanced Vulnerability Scanning</li>
+                        <li>✅ Executive Reporting Suite</li>
+                        <li>✅ AI Threat Intelligence</li>
+                        <li>✅ Compliance Monitoring</li>
+                        <li>✅ Priority Support</li>
+                    </ul>
+                    <div class="form-group">
+                        <label>Your Name:</label>
+                        <input type="text" id="name-professional" placeholder="Enter your full name">
+                    </div>
+                    <div class="form-group">
+                        <label>Your Email:</label>
+                        <input type="email" id="email-professional" placeholder="Enter your email">
+                    </div>
+                    <div class="payment-methods">
+                        <button class="payment-btn" onclick="subscribe('professional', 'flutterwave')">💳 Pay with Card/Bank</button>
+                        <button class="payment-btn crypto" onclick="subscribe('professional', 'crypto')">₿ Pay with Crypto</button>
+                        <button class="payment-btn naira" onclick="subscribe('professional', 'paystack')">₦ Pay in Naira</button>
+                    </div>
+                </div>
+                
+                <div class="plan">
+                    <h3>Enterprise Autopilot</h3>
+                    <div class="price">$799<span style="font-size: 0.4em;">/month</span></div>
+                    <ul class="features">
+                        <li>✅ Everything in Professional</li>
+                        <li>✅ Custom Integrations</li>
+                        <li>✅ White-label Options</li>
+                        <li>✅ Dedicated Account Manager</li>
+                        <li>✅ Custom Compliance Reports</li>
+                        <li>✅ 24/7 WhatsApp Support</li>
+                    </ul>
+                    <div class="form-group">
+                        <label>Your Name:</label>
+                        <input type="text" id="name-enterprise" placeholder="Enter your full name">
+                    </div>
+                    <div class="form-group">
+                        <label>Your Email:</label>
+                        <input type="email" id="email-enterprise" placeholder="Enter your email">
+                    </div>
+                    <div class="payment-methods">
+                        <button class="payment-btn" onclick="subscribe('enterprise', 'flutterwave')">💳 Pay with Card/Bank</button>
+                        <button class="payment-btn crypto" onclick="subscribe('enterprise', 'crypto')">₿ Pay with Crypto</button>
+                        <button class="payment-btn naira" onclick="subscribe('enterprise', 'paystack')">₦ Pay in Naira</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin-top: 50px; padding: 30px; background: rgba(30, 41, 59, 0.8); border-radius: 15px;">
+                <h3>🌍 Global Payment Support</h3>
+                <p><strong>💳 Card/Bank Transfers:</strong> Visa, MasterCard, bank transfers worldwide via Flutterwave</p>
+                <p><strong>₿ Cryptocurrency:</strong> Bitcoin, Ethereum, USDT, and 150+ coins via NowPayments</p>
+                <p><strong>₦ Nigerian Payments:</strong> All Nigerian banks, cards, and mobile money via Paystack</p>
+                <p style="margin-top: 20px;">📱 24/7 Support: <strong>+234 908 482 4238 (WhatsApp)</strong> | ✉️ <strong>{ASTRAFABRIC_EMAIL}</strong></p>
+            </div>
+        </div>
+        
+        <script>
+            function subscribe(plan, gateway) {{
+                const name = document.getElementById(`name-${{plan}}`).value;
+                const email = document.getElementById(`email-${{plan}}`).value;
+                
+                if (!name || !email) {{
+                    alert('Please enter your name and email address');
+                    return;
+                }}
+                
+                if (!email.includes('@')) {{
+                    alert('Please enter a valid email address');
+                    return;
+                }}
+                
+                // Show loading
+                const button = event.target;
+                const originalText = button.textContent;
+                button.textContent = 'Processing...';
+                button.disabled = true;
+                
+                // Create payment
+                fetch('/api/v1/payment/create', {{
+                    method: 'POST',
+                    headers: {{'Content-Type': 'application/json'}},
+                    body: JSON.stringify({{
+                        plan: plan,
+                        gateway: gateway,
+                        client_name: name,
+                        client_email: email
+                    }})
+                }})
+                .then(response => response.json())
+                .then(data => {{
+                    if (data.status === 'success') {{
+                        window.location.href = data.payment_url;
+                    }} else {{
+                        alert('Payment creation failed: ' + data.message);
+                        button.textContent = originalText;
+                        button.disabled = false;
+                    }}
+                }})
+                .catch(error => {{
+                    alert('Error: ' + error.message);
+                    button.textContent = originalText;
+                    button.disabled = false;
+                }});
+            }}
+        </script>
+    </body>
+    </html>
+    '''
+
+@app.route('/api/v1/payment/create', methods=['POST'])
+def create_payment():
+    data = request.get_json()
+    plan = data.get('plan')
+    gateway = data.get('gateway') 
+    client_name = data.get('client_name')
+    client_email = data.get('client_email')
+    
+    if not all([plan, gateway, client_name, client_email]):
+        return jsonify({"status": "error", "message": "Missing required fields"}), 400
+    
+    if plan not in SUBSCRIPTION_PLANS:
+        return jsonify({"status": "error", "message": "Invalid subscription plan"}), 400
+    
+    try:
+        if gateway == 'flutterwave':
+            result = payment_gateway.create_flutterwave_payment(plan, client_email, client_name, 'USD')
+        elif gateway == 'crypto':
+            result = payment_gateway.create_nowpayments_invoice(plan, client_email, client_name)
+        elif gateway == 'paystack':
+            result = payment_gateway.create_paystack_payment(plan, client_email, client_name)
+        else:
+            return jsonify({"status": "error", "message": "Invalid payment gateway"}), 400
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        print(f"Payment creation error: {{str(e)}}")
+        return jsonify({"status": "error", "message": "Payment gateway error"}), 500
+
+@app.route('/payment/callback')
+def payment_callback():
+    transaction_id = request.args.get('transaction_id')
+    status = request.args.get('status')
+    
+    if status == 'successful' and transaction_id:
+        if payment_gateway.verify_flutterwave_payment(transaction_id):
+            return redirect('/payment/success')
+    
+    return redirect('/payment/failed')
+
+@app.route('/payment/success')
+def payment_success():
+    return f'''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Payment Successful - AstraFabric</title>
+        <link rel="icon" type="image/x-icon" href="/favicon.ico">
+        <style>
+            body {{ font-family: Arial, sans-serif; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: white; text-align: center; padding: 50px; }}
+            .success-container {{ max-width: 600px; margin: 0 auto; background: linear-gradient(145deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.2)); padding: 50px; border-radius: 20px; border: 1px solid rgba(16, 185, 129, 0.3); }}
+            h1 {{ font-size: 3em; color: #10b981; margin-bottom: 30px; }}
+        </style>
+    </head>
+    <body>
+        <div class="success-container">
+            <h1>🎉 Payment Successful!</h1>
+            <p style="font-size: 1.5em; margin-bottom: 30px;">Welcome to AstraFabric Enterprise Security!</p>
+            <p>Your subscription is now active. Check your email for login details and getting started guide.</p>
+            <p style="margin-top: 40px;">
+                <a href="/client" style="background: linear-gradient(45deg, #3b82f6, #1e40af); color: white; padding: 15px 30px; text-decoration: none; border-radius: 10px; font-weight: bold;">Access Your Dashboard</a>
+            </p>
+            <p style="margin-top: 30px;">📱 Support: <strong>+234 908 482 4238 (WhatsApp)</strong> | ✉️ <strong>{ASTRAFABRIC_EMAIL}</strong></p>
+        </div>
+    </body>
+    </html>
+    '''
+
+@app.route('/payment/failed') 
+def payment_failed():
+    return f'''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Payment Failed - AstraFabric</title>
+        <link rel="icon" type="image/x-icon" href="/favicon.ico">
+        <style>
+            body {{ font-family: Arial, sans-serif; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: white; text-align: center; padding: 50px; }}
+            .failed-container {{ max-width: 600px; margin: 0 auto; background: linear-gradient(145deg, rgba(220, 38, 38, 0.2), rgba(185, 28, 28, 0.2)); padding: 50px; border-radius: 20px; border: 1px solid rgba(220, 38, 38, 0.3); }}
+            h1 {{ font-size: 3em; color: #dc2626; margin-bottom: 30px; }}
+        </style>
+    </head>
+    <body>
+        <div class="failed-container">
+            <h1>❌ Payment Failed</h1>
+            <p style="font-size: 1.3em; margin-bottom: 30px;">We couldn't process your payment. Please try again.</p>
+            <p style="margin-top: 40px;">
+                <a href="/subscribe" style="background: linear-gradient(45deg, #3b82f6, #1e40af); color: white; padding: 15px 30px; text-decoration: none; border-radius: 10px; font-weight: bold;">Try Again</a>
+            </p>
+            <p style="margin-top: 30px;">📱 Need Help? <strong>+234 908 482 4238 (WhatsApp)</strong> | ✉️ <strong>{ASTRAFABRIC_EMAIL}</strong></p>
+        </div>
+    </body>
+    </html>
+    '''
+
+@app.route('/payment/nowpayments/webhook', methods=['POST'])
+def nowpayments_webhook():
+    try:
+        payload = request.get_data()
+        signature = request.headers.get('x-nowpayments-sig')
+        
+        # Verify webhook signature
+        expected_signature = hmac.new(
+            NOWPAYMENTS_IPN_SECRET.encode('utf-8'),
+            payload,
+            hashlib.sha512
+        ).hexdigest()
+        
+        if signature != expected_signature:
+            return jsonify({"error": "Invalid signature"}), 401
+        
+        data = request.get_json()
+        
+        if data.get('payment_status') == 'finished':
+            subscription_id = data.get('order_id')
+            if subscription_id:
+                payment_gateway.activate_subscription(subscription_id, 'nowpayments', data)
+        
+        return jsonify({"status": "ok"}), 200
+        
+    except Exception as e:
+        print(f"NowPayments webhook error: {{str(e)}}")
+        return jsonify({"error": "Webhook processing failed"}), 500
+
+@app.route('/api/v1/subscriptions', methods=['GET'])
+@admin_required
+def get_subscriptions():
+    log_admin_access('/api/v1/subscriptions', request.remote_addr, True)
+    
+    conn = sqlite3.connect('astrafabric.db')
+    cursor = conn.cursor()
+    cursor.execute('''SELECT id, client_email, client_name, plan_type, payment_method, 
+                     amount_usd, currency, status, created_date, expires_date 
+                     FROM subscriptions ORDER BY created_date DESC''')
+    subscriptions = cursor.fetchall()
+    conn.close()
+    
+    return jsonify({
+        "subscriptions": [{
+            "id": sub[0],
+            "client_email": sub[1], 
+            "client_name": sub[2],
+            "plan_type": sub[3],
+            "payment_method": sub[4],
+            "amount_usd": sub[5],
+            "currency": sub[6],
+            "status": sub[7],
+            "created_date": sub[8],
+            "expires_date": sub[9]
+        } for sub in subscriptions],
+        "platform": "AstraFabric Enterprise Payment System"
+    })
+
+
+@app.route('/contact')
+def contact_us():
+    return f'''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Contact Us - AstraFabric Enterprise Security</title>
+        <link rel="icon" type="image/x-icon" href="/favicon.ico">
+        <style>
+            body {{ 
+                font-family: Arial, sans-serif; 
+                margin: 0; 
+                background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+                color: white; 
+                min-height: 100vh;
+            }}
+            
+            .header {{ 
+                background: linear-gradient(45deg, #1e293b, #334155); 
+                padding: 20px 0; 
+                text-align: center;
+                border-bottom: 1px solid rgba(59, 130, 246, 0.3);
+            }}
+            
+            .container {{ 
+                max-width: 1000px; 
+                margin: 0 auto; 
+                padding: 50px 20px;
+            }}
+            
+            h1 {{
+                font-size: 3.5em;
+                background: linear-gradient(45deg, #3b82f6, #8b5cf6);
+                background-clip: text;
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                margin-bottom: 30px;
+                text-align: center;
+            }}
+            
+            .contact-grid {{
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+                gap: 50px;
+                margin: 50px 0;
+            }}
+            
+            .contact-card {{
+                background: linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(51, 65, 85, 0.6));
+                padding: 40px;
+                border-radius: 20px;
+                border: 1px solid rgba(59, 130, 246, 0.3);
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+                transform: perspective(1000px) rotateX(0deg);
+                transition: all 0.4s ease;
+            }}
+            
+            .contact-card:hover {{
+                transform: perspective(1000px) rotateX(5deg) translateZ(10px);
+                border-color: rgba(59, 130, 246, 0.6);
+                box-shadow: 0 30px 80px rgba(59, 130, 246, 0.2);
+            }}
+            
+            .contact-method {{
+                display: flex;
+                align-items: center;
+                margin: 25px 0;
+                padding: 20px;
+                background: rgba(15, 23, 42, 0.6);
+                border-radius: 15px;
+                border-left: 4px solid #3b82f6;
+            }}
+            
+            .contact-icon {{
+                font-size: 2.5em;
+                margin-right: 20px;
+                min-width: 60px;
+            }}
+            
+            .contact-info h3 {{
+                margin: 0 0 10px 0;
+                color: #3b82f6;
+                font-size: 1.4em;
+            }}
+            
+            .contact-info p {{
+                margin: 5px 0;
+                color: #cbd5e1;
+                line-height: 1.6;
+            }}
+            
+            .contact-info a {{
+                color: #60a5fa;
+                text-decoration: none;
+                font-weight: bold;
+            }}
+            
+            .contact-info a:hover {{
+                color: #3b82f6;
+                text-decoration: underline;
+            }}
+            
+            .whatsapp-highlight {{
+                background: linear-gradient(45deg, #25d366, #20b358);
+                border-left-color: #25d366;
+            }}
+            
+            .business-hours {{
+                background: linear-gradient(145deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.2));
+                border: 1px solid rgba(16, 185, 129, 0.3);
+                padding: 30px;
+                border-radius: 15px;
+                margin: 40px 0;
+                text-align: center;
+            }}
+            
+            .cta-section {{
+                text-align: center;
+                margin: 60px 0;
+                padding: 50px;
+                background: linear-gradient(145deg, rgba(59, 130, 246, 0.2), rgba(37, 99, 235, 0.2));
+                border-radius: 20px;
+                border: 1px solid rgba(59, 130, 246, 0.3);
+            }}
+            
+            .btn {{
+                background: linear-gradient(45deg, #3b82f6, #1e40af);
+                color: white;
+                padding: 15px 30px;
+                border: none;
+                border-radius: 10px;
+                text-decoration: none;
+                font-weight: bold;
+                font-size: 1.1em;
+                display: inline-block;
+                margin: 10px;
+                transition: all 0.3s ease;
+            }}
+            
+            .btn:hover {{
+                background: linear-gradient(45deg, #2563eb, #1d4ed8);
+                transform: translateY(-2px);
+                box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);
+            }}
+            
+            .nav-links {{
+                text-align: center;
+                margin: 40px 0;
+            }}
+            
+            .nav-links a {{
+                color: #60a5fa;
+                text-decoration: none;
+                margin: 0 20px;
+                font-weight: bold;
+            }}
+            
+            .nav-links a:hover {{
+                color: #3b82f6;
+                text-decoration: underline;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h2>🛡️ AstraFabric Enterprise Security</h2>
+            <div class="nav-links">
+                <a href="/">🏠 Home</a>
+                <a href="/subscribe">💳 Subscribe</a>
+                <a href="/client">🔒 Client Portal</a>
+                <a href="/reports">📊 Reports</a>
+                <a href="/docs">📖 API Docs</a>
+            </div>
+        </div>
+        
+        <div class="container">
+            <h1>📞 Contact Us</h1>
+            
+            <div class="contact-grid">
+                <div class="contact-card">
+                    <h2 style="color: #3b82f6; text-align: center; margin-bottom: 30px;">🚀 Get In Touch</h2>
+                    
+                    <div class="contact-method">
+                        <div class="contact-icon">✉️</div>
+                        <div class="contact-info">
+                            <h3>Email Support</h3>
+                            <p><a href="mailto:contact@astrafabric.com">contact@astrafabric.com</a></p>
+                            <p>General inquiries and support</p>
+                        </div>
+                    </div>
+                    
+                    <div class="contact-method whatsapp-highlight">
+                        <div class="contact-icon">💬</div>
+                        <div class="contact-info">
+                            <h3>WhatsApp Support</h3>
+                            <p><a href="https://wa.me/2349084824238">+234 908 482 4238</a></p>
+                            <p>Instant support and consultations</p>
+                        </div>
+                    </div>
+                    
+                    <div class="contact-method">
+                        <div class="contact-icon">🌐</div>
+                        <div class="contact-info">
+                            <h3>Website</h3>
+                            <p><a href="https://astrafabric.onrender.com">astrafabric.onrender.com</a></p>
+                            <p>Platform access and documentation</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="contact-card">
+                    <h2 style="color: #3b82f6; text-align: center; margin-bottom: 30px;">🏢 Enterprise Sales</h2>
+                    
+                    <div class="contact-method">
+                        <div class="contact-icon">💼</div>
+                        <div class="contact-info">
+                            <h3>Enterprise Inquiries</h3>
+                            <p><a href="mailto:enterprise@astrafabric.com">enterprise@astrafabric.com</a></p>
+                            <p>Fortune 500 partnerships and custom solutions</p>
+                        </div>
+                    </div>
+                    
+                    <div class="contact-method">
+                        <div class="contact-icon">🔒</div>
+                        <div class="contact-info">
+                            <h3>Security Consultations</h3>
+                            <p><a href="https://wa.me/2349084824238">WhatsApp: +234 908 482 4238</a></p>
+                            <p>Free security assessments and demos</p>
+                        </div>
+                    </div>
+                    
+                    <div class="contact-method">
+                        <div class="contact-icon">⚡</div>
+                        <div class="contact-info">
+                            <h3>Technical Support</h3>
+                            <p><a href="mailto:support@astrafabric.com">support@astrafabric.com</a></p>
+                            <p>Implementation and integration assistance</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="business-hours">
+                <h3 style="color: #10b981;">🕒 Support Hours</h3>
+                <p><strong>24/7 Autonomous Monitoring</strong> - Your security never sleeps</p>
+                <p><strong>WhatsApp Support:</strong> Available during business hours (9 AM - 6 PM WAT)</p>
+                <p><strong>Email Support:</strong> Responses within 2-4 hours during business days</p>
+                <p><strong>Enterprise Clients:</strong> Priority support and dedicated account managers</p>
+            </div>
+            
+            <div class="cta-section">
+                <h3>🎯 Ready to Secure Your Business?</h3>
+                <p style="font-size: 1.2em; margin: 20px 0;">Join Fortune 500 companies using AstraFabric for enterprise security monitoring</p>
+                <a href="/subscribe" class="btn">💳 Subscribe Now</a>
+                <a href="https://wa.me/2349084824238" class="btn" style="background: linear-gradient(45deg, #25d366, #20b358);">💬 WhatsApp Demo</a>
+            </div>
+        </div>
+    </body>
+    </html>
+    '''
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
