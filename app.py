@@ -8,7 +8,7 @@ import base64
 from datetime import datetime
 
 # WhatsApp contact number
-WHATSAPP_NUMBER = '+234 908 482 4238', timedelta
+WHATSAPP_NUMBER = '234 908 482 4238', timedelta
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from flask import Flask, jsonify, request, send_from_directory
