@@ -5,7 +5,10 @@ import json
 import smtplib
 import sqlite3
 import base64
-from datetime import datetime, timedelta
+from datetime import datetime
+
+# WhatsApp contact number
+WHATSAPP_NUMBER = '+234 908 482 4238', timedelta
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from flask import Flask, jsonify, request, send_from_directory
@@ -19,7 +22,7 @@ app.config['ENV'] = 'production'
 app.config['DEBUG'] = False
 
 # Environment variables
-+234 908 482 4238 = os.environ.get('+234 908 482 4238', '+2349043839065')
+WHATSAPP_NUMBER = 'WHATSAPP_NUMBER'
 ASTRAFABRIC_WHATSAPP_1 = os.environ.get('ASTRAFABRIC_WHATSAPP_1', '+2349084824238')
 ASTRAFABRIC_WHATSAPP_2 = os.environ.get('ASTRAFABRIC_WHATSAPP_2', '+2349064376043')
 ASTRAFABRIC_EMAIL = os.environ.get('ASTRAFABRIC_EMAIL', 'contact@astrafabric.com')
@@ -244,7 +247,10 @@ import requests
 import hmac
 import hashlib
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
+
+# WhatsApp contact number
+WHATSAPP_NUMBER = '+234 908 482 4238', timedelta
 
 # Payment Gateway Configuration
 FLUTTERWAVE_PUBLIC_KEY = os.environ.get('FLUTTERWAVE_PUBLIC_KEY', '')
@@ -592,7 +598,7 @@ def health_check():
         "features": ["3D Web3 UI", "Email Alerts", "Vulnerability Scanning", "Advanced Reporting"],
         "timestamp": datetime.now().isoformat(),
         "company": "AstraFabric",
-        "contact": +234 908 482 4238,
+        "contact": WHATSAPP_NUMBER,
         "email": ASTRAFABRIC_EMAIL,
         "ui_theme": "3D Web3 Enterprise",
         "admin_security": "Protected with secret path and authentication"
@@ -1373,7 +1379,7 @@ def security_reports(report_type='overview'):
                 "medium_vulnerabilities": 3,
                 "low_vulnerabilities": 5
             },
-            "contact": +234 908 482 4238,
+            "contact": WHATSAPP_NUMBER,
             "ui_version": "3D Web3 Interface"
         })
     elif report_type == 'compliance':
@@ -1387,7 +1393,7 @@ def security_reports(report_type='overview'):
                 "ISO_27001": {"compliance_score": 96, "status": "compliant"},
                 "GDPR": {"compliance_score": 97, "status": "compliant"}
             },
-            "contact": +234 908 482 4238,
+            "contact": WHATSAPP_NUMBER,
             "ui_version": "3D Web3 Interface"
         })
     else:
@@ -1397,7 +1403,7 @@ def security_reports(report_type='overview'):
             "platform": "AstraFabric Web3 Enterprise v3.0",
             "monitoring_status": "24/7 Active",
             "features": ["3D Web3 UI", "Email Alerts", "Vulnerability Scanning", "Advanced Reporting"],
-            "contact": +234 908 482 4238,
+            "contact": WHATSAPP_NUMBER,
             "ui_version": "3D Web3 Interface"
         })
 
@@ -2196,7 +2202,7 @@ def contact_us():
                         <div class="contact-icon">💬</div>
                         <div class="contact-info">
                             <h3>WhatsApp Support</h3>
-                            <p><a href="https://wa.me/2349084824238">+234 908 482 4238</a></p>
+                            <p><a href="https://wa.me/2349084824238">WHATSAPP_NUMBER</a></p>
                             <p>Instant support and consultations</p>
                         </div>
                     </div>
@@ -2227,7 +2233,7 @@ def contact_us():
                         <div class="contact-icon">🔒</div>
                         <div class="contact-info">
                             <h3>Security Consultations</h3>
-                            <p><a href="https://wa.me/2349084824238">WhatsApp: +234 908 482 4238</a></p>
+                            <p><a href="https://wa.me/2349084824238">WhatsApp: WHATSAPP_NUMBER</a></p>
                             <p>Free security assessments and demos</p>
                         </div>
                     </div>
