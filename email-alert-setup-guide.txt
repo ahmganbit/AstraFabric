@@ -1,0 +1,54 @@
+# AstraFabric Email Alert System Setup Guide
+
+## Gmail App Password Setup (Recommended)
+
+1. **Enable 2-Factor Authentication on your Gmail account**
+   - Go to Google Account settings
+   - Security → 2-Step Verification → Turn On
+
+2. **Generate App Password**
+   - Google Account → Security → 2-Step Verification
+   - App passwords → Select app "Mail" → Generate
+   - Copy the 16-character password
+
+3. **Configure in Render.com**
+   - Go to your Render service dashboard
+   - Environment → Add environment variable:
+     - Key: `SMTP_PASSWORD`
+     - Value: [your-16-character-app-password]
+
+## Email Alert Features
+
+### Severity Levels
+- **Critical**: Red alerts for immediate threats
+- **High**: Orange alerts for serious issues
+- **Medium**: Yellow alerts for moderate concerns
+- **Low**: Green alerts for informational events
+
+### Alert Types
+- Vulnerability scan results
+- Security threat detection
+- System status changes
+- Compliance violations
+
+## Testing Email Alerts
+
+Use the API endpoint to test email functionality:
+
+```bash
+curl -X POST https://astrafabric.com/api/v1/alerts/send \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test@example.com",
+    "subject": "Test Alert",
+    "message": "This is a test security alert",
+    "severity": "medium"
+  }'
+```
+
+## Support
+
+Contact AstraFabric support for email configuration assistance:
+- Phone: +2349043839065
+- WhatsApp: +2349084824238 | +2349064376043
+- Email: contact@astrafabric.com
