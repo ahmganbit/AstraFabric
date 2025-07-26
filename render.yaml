@@ -1,0 +1,37 @@
+# AstraFabric Render.com Production Configuration
+# render.yaml - Production-ready deployment
+
+services:
+  # Main web application with Gunicorn
+  - type: web
+    name: astrafabric-platform
+    env: python
+    plan: starter  # $7/month
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT app:app
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: ASTRAFABRIC_ENV
+        value: production
+      - key: ASTRAFABRIC_DOMAIN
+        value: astrafabric.com
+      - key: ASTRAFABRIC_CONTACT_PHONE
+        value: "+2349043839065"
+      - key: ASTRAFABRIC_WHATSAPP_1
+        value: "+2349084824238"
+      - key: ASTRAFABRIC_WHATSAPP_2
+        value: "+2349064376043"
+      - key: ASTRAFABRIC_EMAIL
+        value: "contact@astrafabric.com"
+      - key: FLASK_ENV
+        value: production
+      - key: GUNICORN_WORKERS
+        value: "2"
+      - key: GUNICORN_TIMEOUT
+        value: "30"
+
+# Custom domains
+domains:
+  - astrafabric.com
+  - www.astrafabric.com
+  - api.astrafabric.com
