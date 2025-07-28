@@ -25,7 +25,8 @@ services:
       
       # Database Configuration
       - key: DATABASE_URL
-        fromDatabase:
+        fromService:
+          type: postgres
           name: astrafabric-db
           property: connectionString
       
@@ -52,7 +53,7 @@ services:
         value: "30"
 
   # PostgreSQL Database - FREE TIER
-  - type: pgsql
+  - type: postgres
     name: astrafabric-db
     # No plan specified = FREE tier (with limitations)
     databaseName: astrafabric
