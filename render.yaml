@@ -1,37 +1,72 @@
 # AstraFabric Render.com Production Configuration
-# render.yaml - Production-ready deployment
+# render.yaml - Production-ready deployment with new app factory
 
 services:
-  # Main web application with Gunicorn
+  # Main web application with Gunicorn and app factory
   - type: web
     name: astrafabric-platform
     env: python
     plan: starter  # $7/month
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn --bind 0.0.0.0:$PORT app:app
-    healthCheckPath: /api/v1/health
+    startCommand: gunicorn --config gunicorn.conf.py app_factory:create_app()
+    healthCheckPath: /health
     envVars:
-      - key: ASTRAFABRIC_ENV
-        value: production
-      - key: ASTRAFABRIC_DOMAIN
-        value: astrafabric.com
-      - key: ASTRAFABRIC_CONTACT_PHONE
-        value: "+2349043839065"
-      - key: ASTRAFABRIC_WHATSAPP_1
-        value: "+2349084824238"
-      - key: ASTRAFABRIC_WHATSAPP_2
-        value: "+2349064376043"
-      - key: ASTRAFABRIC_EMAIL
-        value: "contact@astrafabric.com"
+      # Application Configuration
       - key: FLASK_ENV
         value: production
+      - key: BASE_URL
+        sync: false  # Set this in Render dashboard
+      
+      # Security Configuration (REQUIRED - Set in Render dashboard)
+      - key: SECRET_KEY
+        sync: false  # Generate a secure random key
+      - key: ADMIN_PASSWORD
+        sync: false  # Set a secure admin password
+      
+      # Database Configuration
+      - key: DATABASE_URL
+        fromDatabase:
+          name: astrafabric-db
+          property: connectionString
+      
+      # Payment Gateway Configuration (Set in Render dashboard)
+      - key: NOWPAYMENTS_API_KEY
+        sync: false
+      - key: NOWPAYMENTS_HMAC_KEY
+        sync: false
+      - key: FLW_PUBLIC_KEY
+        sync: false
+      - key: FLW_SECRET_KEY
+        sync: false
+      - key: FLW_SECRET_HASH
+        sync: false
+      
+      # Redis Configuration (optional, falls back to memory)
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: astrafabric-redis
+          property: connectionString
+      
+      # Application Settings
       - key: GUNICORN_WORKERS
         value: "2"
       - key: GUNICORN_TIMEOUT
         value: "30"
 
+  # PostgreSQL Database
+  - type: pgsql
+    name: astrafabric-db
+    plan: starter  # $7/month
+    databaseName: astrafabric
+    user: astrafabric_user
+
+  # Redis for rate limiting and caching (optional)
+  - type: redis
+    name: astrafabric-redis
+    plan: starter  # $7/month
+
 # Custom domains
 domains:
   - astrafabric.com
   - www.astrafabric.com
-  - api.astrafabric.com

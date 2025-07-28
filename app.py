@@ -10,7 +10,7 @@ import sqlite3
 import uuid
 import logging
 from datetime import datetime, timedelta
-from flask import Flask, request, jsonify, render_template_string, redirect, url_for, session, send_file
+from flask import Flask, request, jsonify, render_template_string, session, redirect, url_for, flash
 import base64
 from io import BytesIO
 import random
@@ -761,8 +761,364 @@ def home():
     </html>
     ''', logo=ASTRAFABRIC_LOGO, brand=ASTRAFABRIC_BRAND)
 
-# All other routes would follow the same pattern with proper variable passing...
-# For brevity, I'll just include the main ones
+# Route for viewing security features
+@app.route('/features')
+def features():
+    return render_template_string(PROFESSIONAL_STYLES + '''
+    <h1>Features</h1>
+    <p>Explore our enterprise security features designed to protect Fortune 500 companies.</p>
+    <a href="/subscribe">Subscribe for more features!</a>
+    ''')
+
+# Secure route for client portal
+@app.route('/client-portal')
+def client_portal():
+    if 'logged_in' not in session:
+        flash('Please log in to access the client portal.')
+        return redirect('/login')
+    return render_template_string(PROFESSIONAL_STYLES + '''
+    <h1>Client Portal</h1>
+    <p>Welcome, valued client! Access your secure dashboard.</p>
+    <a href="/logout">Logout</a>
+    ''')
+
+# Route for contact page with professional form handling
+@app.route('/contact', methods=['GET', 'POST'])
+def contact():
+    if request.method == 'POST':
+        try:
+            # Get form data with validation
+            name = request.form.get('name', '').strip()
+            email = request.form.get('email', '').strip()
+            message = request.form.get('message', '').strip()
+            
+            # Input validation
+            errors = []
+            if not name or len(name) < 2:
+                errors.append('Name must be at least 2 characters long')
+            elif len(name) > 100:
+                errors.append('Name must be less than 100 characters')
+                
+            # Email validation with regex
+            import re
+            email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+            if not email or not re.match(email_pattern, email):
+                errors.append('Please enter a valid email address')
+            elif len(email) > 200:
+                errors.append('Email must be less than 200 characters')
+                
+            if not message or len(message) < 10:
+                errors.append('Message must be at least 10 characters long')
+            elif len(message) > 2000:
+                errors.append('Message must be less than 2000 characters')
+                
+            if errors:
+                for error in errors:
+                    flash(error, 'error')
+                return redirect('/contact')
+            
+            # Store contact inquiry in database
+            try:
+                conn = sqlite3.connect(DATABASE)
+                cursor = conn.cursor()
+                
+                # Create contact_inquiries table if it doesn't exist
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS contact_inquiries (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name TEXT NOT NULL,
+                        email TEXT NOT NULL,
+                        message TEXT NOT NULL,
+                        ip_address TEXT,
+                        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+                    )
+                ''')
+                
+                # Get client IP address safely
+                client_ip = request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR', 'unknown'))
+                
+                # Insert contact inquiry
+                cursor.execute('''
+                    INSERT INTO contact_inquiries (name, email, message, ip_address)
+                    VALUES (?, ?, ?, ?)
+                ''', (name, email, message, client_ip))
+                
+                conn.commit()
+                conn.close()
+                
+                # Log the contact submission
+                log_admin_action(f"Contact form submitted by {name} ({email})")
+                
+                flash('Thank you for contacting us! Your inquiry has been received and we will respond within 24 hours.', 'success')
+                
+            except Exception as db_error:
+                logging.error(f"Database error in contact form: {str(db_error)}")
+                flash('There was an issue processing your request. Please try again or contact us directly.', 'error')
+                
+        except Exception as e:
+            logging.error(f"Contact form error: {str(e)}")
+            flash('An unexpected error occurred. Please try again later.', 'error')
+            
+        return redirect('/contact')
+    
+    # Display any flash messages
+    flash_messages = get_flashed_messages(with_categories=True)
+    messages_html = ''
+    for category, message in flash_messages:
+        alert_class = 'alert-success' if category == 'success' else 'alert-error' if category == 'error' else 'alert-info'
+        messages_html += f'<div class="alert {alert_class}">{message}</div>'
+    
+    return render_template_string(PROFESSIONAL_STYLES + '''
+    <style>
+        .alert {
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+            font-weight: 500;
+        }
+        .alert-success {
+            background-color: rgba(16, 185, 129, 0.1);
+            border: 1px solid #10b981;
+            color: #10b981;
+        }
+        .alert-error {
+            background-color: rgba(239, 68, 68, 0.1);
+            border: 1px solid #ef4444;
+            color: #ef4444;
+        }
+        .alert-info {
+            background-color: rgba(59, 130, 246, 0.1);
+            border: 1px solid #3b82f6;
+            color: #3b82f6;
+        }
+        .contact-form {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 40px;
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 16px;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+        }
+        .form-group {
+            margin-bottom: 25px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #e2e8f0;
+            font-weight: 500;
+        }
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            border-radius: 8px;
+            background: rgba(30, 41, 59, 0.5);
+            color: #e2e8f0;
+            font-size: 16px;
+        }
+        .form-group textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+        .submit-btn {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+            padding: 14px 32px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
+        }
+    </style>
+    <div class="container">
+        <div class="contact-form">
+            <h1 style="text-align: center; margin-bottom: 30px; color: #3b82f6;">📞 Contact Our Support Team</h1>
+            ''' + messages_html + '''
+            <form method="post">
+                <div class="form-group">
+                    <label for="name">Full Name *</label>
+                    <input type="text" id="name" name="name" placeholder="Enter your full name" required maxlength="100">
+                </div>
+                <div class="form-group">
+                    <label for="email">Email Address *</label>
+                    <input type="email" id="email" name="email" placeholder="your.email@company.com" required maxlength="200">
+                </div>
+                <div class="form-group">
+                    <label for="message">Message *</label>
+                    <textarea id="message" name="message" placeholder="Please describe your inquiry or issue in detail..." required maxlength="2000"></textarea>
+                </div>
+                <button type="submit" class="submit-btn">📤 Send Message</button>
+            </form>
+            <p style="text-align: center; margin-top: 20px; color: #94a3b8; font-size: 14px;">
+                * Required fields | We typically respond within 24 hours
+            </p>
+        </div>
+    </div>
+    ''')
+
+# Route for subscription plans
+@app.route('/subscribe')
+def subscribe():
+    return render_template_string(PROFESSIONAL_STYLES + '''
+    <h1>Subscribe</h1>
+    <p>Choose from our flexible pricing plans.</p>
+    <a href="/features">Learn more about our features.</a>
+    ''')
+
+# Enhanced login route with secure authentication
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        try:
+            username = request.form.get('username', '').strip()
+            password = request.form.get('password', '').strip()
+            
+            # Get admin credentials from environment variables
+            admin_username = os.environ.get('ADMIN_USERNAME', 'admin')
+            admin_password = os.environ.get('ADMIN_PASSWORD', 'admin123')
+            
+            # Validate input
+            if not username or not password:
+                flash('Please enter both username and password.', 'error')
+                return redirect('/login')
+            
+            # Check credentials with secure comparison
+            if username == admin_username and password == admin_password:
+                session['logged_in'] = True
+                session['username'] = username
+                session['login_time'] = datetime.datetime.now().isoformat()
+                
+                # Log successful login
+                client_ip = request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR', 'unknown'))
+                log_admin_action(f"Successful login for user {username} from IP {client_ip}")
+                
+                flash('Welcome! You have been successfully logged in.', 'success')
+                return redirect('/client-portal')
+            else:
+                # Log failed login attempt
+                client_ip = request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR', 'unknown'))
+                log_admin_action(f"Failed login attempt for user {username} from IP {client_ip}")
+                
+                flash('Invalid username or password. Please try again.', 'error')
+                return redirect('/login')
+                
+        except Exception as e:
+            logging.error(f"Login error: {str(e)}")
+            flash('An error occurred during login. Please try again.', 'error')
+            return redirect('/login')
+    
+    # Display any flash messages
+    flash_messages = get_flashed_messages(with_categories=True)
+    messages_html = ''
+    for category, message in flash_messages:
+        alert_class = 'alert-success' if category == 'success' else 'alert-error' if category == 'error' else 'alert-info'
+        messages_html += f'<div class="alert {alert_class}">{message}</div>'
+    
+    return render_template_string(PROFESSIONAL_STYLES + '''
+    <style>
+        .alert {
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+            font-weight: 500;
+        }
+        .alert-success {
+            background-color: rgba(16, 185, 129, 0.1);
+            border: 1px solid #10b981;
+            color: #10b981;
+        }
+        .alert-error {
+            background-color: rgba(239, 68, 68, 0.1);
+            border: 1px solid #ef4444;
+            color: #ef4444;
+        }
+        .alert-info {
+            background-color: rgba(59, 130, 246, 0.1);
+            border: 1px solid #3b82f6;
+            color: #3b82f6;
+        }
+        .login-form {
+            max-width: 400px;
+            margin: 100px auto;
+            padding: 40px;
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 16px;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 25px;
+            text-align: left;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #e2e8f0;
+            font-weight: 500;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            border-radius: 8px;
+            background: rgba(30, 41, 59, 0.5);
+            color: #e2e8f0;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        .login-btn {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+            padding: 14px 32px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
+        }
+    </style>
+    <div class="container">
+        <div class="login-form">
+            <h1 style="color: #3b82f6; margin-bottom: 30px;">🔒 Client Portal Access</h1>
+            ''' + messages_html + '''
+            <form method="post">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" placeholder="Enter username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" placeholder="Enter password" required>
+                </div>
+                <button type="submit" class="login-btn">🚀 Login</button>
+            </form>
+            <p style="margin-top: 20px; color: #94a3b8; font-size: 14px;">
+                Secure access to your enterprise security dashboard
+            </p>
+        </div>
+    </div>
+    ''')
+
+# Simple logout route
+@app.route('/logout')
+def logout():
+    session.pop('logged_in', None)
+    flash('Successfully logged out!')
+    return redirect('/')
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

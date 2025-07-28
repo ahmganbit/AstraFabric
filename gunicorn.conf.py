@@ -19,7 +19,7 @@ max_requests = 1000
 max_requests_jitter = 50
 
 # Application
-wsgi_module = "app:app"
+wsgi_module = "app_factory:create_app()"
 pythonpath = "."
 
 # Logging
