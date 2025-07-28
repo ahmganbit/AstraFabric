@@ -22,7 +22,7 @@ class Config:
     # Database Configuration
     DATABASE_URL = os.environ.get('DATABASE_URL')
     if not DATABASE_URL:
-        # Fallback to SQLite for development only
+        # Fallback to SQLite for development/free tier
         DATABASE_URL = 'sqlite:///astrafabric_secure.db'
     
     # Payment Gateway Configuration

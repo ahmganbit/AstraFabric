@@ -1,12 +1,12 @@
-# AstraFabric Render.com Production Configuration
-# render.yaml - Production-ready deployment with new app factory
+# AstraFabric Render.com FREE TIER Configuration
+# render.yaml - Free tier deployment with app factory
 
 services:
-  # Main web application with Gunicorn and app factory
+  # Main web application - FREE TIER
   - type: web
     name: astrafabric-platform
     env: python
-    plan: starter  # $7/month
+    # No plan specified = FREE tier
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn --config gunicorn.conf.py app_factory:create_app()
     healthCheckPath: /health
@@ -41,32 +41,22 @@ services:
       - key: FLW_SECRET_HASH
         sync: false
       
-      # Redis Configuration (optional, falls back to memory)
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: astrafabric-redis
-          property: connectionString
+      # Rate limiting falls back to memory on free tier
+      - key: RATELIMIT_STORAGE_URL
+        value: "memory://"
       
-      # Application Settings
+      # Application Settings (reduced for free tier)
       - key: GUNICORN_WORKERS
-        value: "2"
+        value: "1"  # Reduced for free tier
       - key: GUNICORN_TIMEOUT
         value: "30"
 
-  # PostgreSQL Database
+  # PostgreSQL Database - FREE TIER
   - type: pgsql
     name: astrafabric-db
-    plan: starter  # $7/month
+    # No plan specified = FREE tier (with limitations)
     databaseName: astrafabric
     user: astrafabric_user
 
-  # Redis for rate limiting and caching (optional)
-  - type: redis
-    name: astrafabric-redis
-    plan: starter  # $7/month
-
-# Custom domains
-domains:
-  - astrafabric.com
-  - www.astrafabric.com
+# Note: Custom domains not available on free tier
+# Use the provided .onrender.com domain

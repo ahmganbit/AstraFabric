@@ -7,10 +7,10 @@ import os
 bind = f"0.0.0.0:{os.environ.get('PORT', 10000)}"
 backlog = 2048
 
-# Worker processes
-workers = int(os.environ.get('GUNICORN_WORKERS', 2))
+# Worker processes (optimized for free tier)
+workers = int(os.environ.get('GUNICORN_WORKERS', 1))  # Free tier default
 worker_class = "sync"
-worker_connections = 1000
+worker_connections = 500  # Reduced for free tier
 timeout = int(os.environ.get('GUNICORN_TIMEOUT', 30))
 keepalive = 2
 
