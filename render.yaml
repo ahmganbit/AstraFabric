@@ -23,12 +23,9 @@ services:
       - key: ADMIN_PASSWORD
         sync: false  # Set a secure admin password
       
-      # Database Configuration
+      # Database Configuration (Set manually in Render dashboard)
       - key: DATABASE_URL
-        fromService:
-          type: postgres
-          name: astrafabric-db
-          property: connectionString
+        sync: false  # Set this after creating PostgreSQL database manually
       
       # Payment Gateway Configuration (Set in Render dashboard)
       - key: NOWPAYMENTS_API_KEY
@@ -52,12 +49,8 @@ services:
       - key: GUNICORN_TIMEOUT
         value: "30"
 
-  # PostgreSQL Database - FREE TIER
-  - type: postgres
-    name: astrafabric-db
-    # No plan specified = FREE tier (with limitations)
-    databaseName: astrafabric
-    user: astrafabric_user
+# Note: PostgreSQL database needs to be created manually in Render dashboard
+# Free tier PostgreSQL not supported in Blueprint - create separately
 
-# Note: Custom domains not available on free tier
+# Note: Custom domains not available on free tier  
 # Use the provided .onrender.com domain
