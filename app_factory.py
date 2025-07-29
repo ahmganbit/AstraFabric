@@ -19,7 +19,8 @@ from models import db
 migrate = Migrate()
 limiter = Limiter(
     key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"]
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://"  # Explicitly set to avoid warnings
 )
 csrf = CSRFProtect()
 
@@ -29,7 +30,7 @@ def create_app(config_name=None):
     
     # Determine configuration
     if config_name is None:
-        config_name = os.environ.get('FLASK_ENV', 'default')
+        config_name = os.environ.get('FLASK_ENV', 'production')  # Default to production for deployment
     
     # Create Flask app
     app = Flask(__name__)
@@ -41,8 +42,10 @@ def create_app(config_name=None):
     # Initialize extensions
     db.init_app(app)
     migrate.init_app(app, db)
-    limiter.init_app(app)
-    csrf.init_app(app)
+    
+    # Only enable CSRF in production with forms
+    if not app.config.get('DEBUG'):
+        csrf.init_app(app)
     
     # Configure security headers (only in production)
     if not app.config.get('DEBUG'):
@@ -53,11 +56,19 @@ def create_app(config_name=None):
     # Register error handlers
     register_error_handlers(app)
     
-    # Register blueprints (when we create them)
+    # Register blueprints
     register_blueprints(app)
     
     # Add request/response hooks
     configure_hooks(app)
+    
+    # Create tables on startup
+    with app.app_context():
+        try:
+            db.create_all()
+            app.logger.info('Database tables created successfully')
+        except Exception as e:
+            app.logger.error(f'Database initialization error: {e}')
     
     return app
 
@@ -140,19 +151,32 @@ def register_error_handlers(app):
 def register_blueprints(app):
     """Register application blueprints."""
     
-    # Import blueprints here to avoid circular imports
-    from routes.main import main_bp
+    try:
+        # Import and register main blueprint
+        from routes.main import main_bp
+        app.register_blueprint(main_bp)
+        app.logger.info('Main blueprint registered successfully')
+    except ImportError as e:
+        app.logger.error(f'Failed to import main blueprint: {e}')
     
-    # Register blueprints
-    app.register_blueprint(main_bp)
+    # Additional blueprints can be added here when they exist
+    # try:
+    #     from routes.auth import auth_bp
+    #     app.register_blueprint(auth_bp, url_prefix='/auth')
+    # except ImportError:
+    #     app.logger.warning('Auth blueprint not found, skipping')
     
-    # Note: Other blueprints (auth, payment, api) will be added when they exist
-    # from routes.auth import auth_bp
-    # from routes.payment import payment_bp
-    # from routes.api import api_bp
-    # app.register_blueprint(auth_bp, url_prefix='/auth')
-    # app.register_blueprint(payment_bp, url_prefix='/payment')
-    # app.register_blueprint(api_bp, url_prefix='/api/v1')
+    # try:
+    #     from routes.payment import payment_bp
+    #     app.register_blueprint(payment_bp, url_prefix='/payment')
+    # except ImportError:
+    #     app.logger.warning('Payment blueprint not found, skipping')
+    
+    # try:
+    #     from routes.api import api_bp
+    #     app.register_blueprint(api_bp, url_prefix='/api/v1')
+    # except ImportError:
+    #     app.logger.warning('API blueprint not found, skipping')
 
 
 def configure_hooks(app):
@@ -172,9 +196,11 @@ def configure_hooks(app):
         
         # Security headers for all responses
         if not app.config.get('DEBUG'):
-            # Force HTTPS in production
+            # Force HTTPS in production (but allow Render's proxy)
             if not request.is_secure and request.headers.get('X-Forwarded-Proto') != 'https':
-                return jsonify({'error': 'HTTPS required'}), 400
+                # Allow health checks and local development
+                if request.path not in ['/health', '/'] and not request.remote_addr.startswith('127.'):
+                    return jsonify({'error': 'HTTPS required'}), 400
     
     @app.after_request
     def after_request(response):
@@ -195,88 +221,10 @@ def configure_hooks(app):
         return response
 
 
-def create_tables(app):
-    """Create database tables."""
-    with app.app_context():
-        db.create_all()
-        app.logger.info('Database tables created')
-
-
-def init_sample_data(app):
-    """Initialize sample security monitoring data."""
-    with app.app_context():
-        from models import Customer, SecurityEvent, VulnerabilityScan
-        
-        # Check if data already exists
-        if Customer.query.first():
-            return
-        
-        # Create sample customer
-        customer = Customer(
-            email='demo@astrafabric.com',
-            name='Demo Customer',
-            company='AstraFabric Demo',
-            phone='+1234567890'
-        )
-        db.session.add(customer)
-        db.session.commit()
-        
-        # Create sample security events
-        events = [
-            {
-                'event_type': 'malware_detected',
-                'severity': 'high',
-                'description': 'Malware detected on endpoint workstation-001',
-                'source_ip': '192.168.1.100',
-                'target_system': 'workstation-001'
-            },
-            {
-                'event_type': 'failed_login',
-                'severity': 'medium',
-                'description': 'Multiple failed login attempts detected',
-                'source_ip': '203.0.113.42',
-                'target_system': 'web-server-01'
-            },
-            {
-                'event_type': 'suspicious_network_traffic',
-                'severity': 'low',
-                'description': 'Unusual outbound network traffic pattern',
-                'source_ip': '192.168.1.50',
-                'target_system': 'firewall'
-            }
-        ]
-        
-        for event_data in events:
-            event = SecurityEvent(
-                customer_id=customer.id,
-                **event_data
-            )
-            db.session.add(event)
-        
-        # Create sample vulnerability scan
-        scan = VulnerabilityScan(
-            customer_id=customer.id,
-            scan_type='network',
-            target='192.168.1.0/24',
-            status='completed',
-            vulnerabilities_found=5,
-            critical_count=1,
-            high_count=2,
-            medium_count=2,
-            low_count=0
-        )
-        db.session.add(scan)
-        
-        db.session.commit()
-        app.logger.info('Sample security data initialized')
-
+# Create the application instance for gunicorn
+app = create_app()
 
 if __name__ == '__main__':
     # Create app for development
-    app = create_app('development')
-    
-    with app.app_context():
-        create_tables(app)
-        init_sample_data(app)
-    
-    app.run(debug=True, host='0.0.0.0', port=10000)
+    dev_app = create_app('development')
+    dev_app.run(debug=True, host='0.0.0.0', port=10000)

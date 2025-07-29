@@ -9,9 +9,7 @@ class Config:
     """Base configuration class with security best practices."""
     
     # Security Configuration
-    SECRET_KEY = os.environ.get('SECRET_KEY')
-    if not SECRET_KEY:
-        raise ValueError("SECRET_KEY environment variable is required")
+    SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
     
     # Session Configuration
     SESSION_COOKIE_SECURE = True
@@ -53,8 +51,9 @@ class Config:
         'strict_transport_security': True,
         'strict_transport_security_max_age': 31536000,
         'strict_transport_security_include_subdomains': True,
-        'content_type_options': True,
-        'frame_options': 'DENY',
+        'x_content_type_options': True,
+        'x_frame_options': 'DENY',
+        'x_xss_protection': True,
         'content_security_policy': {
             'default-src': "'self'",
             'script-src': "'self' 'unsafe-inline' cdn.jsdelivr.net",
@@ -77,15 +76,19 @@ class ProductionConfig(Config):
     """Production configuration."""
     DEBUG = False
     
-    # Require all payment keys in production
-    required_keys = [
-        'NOWPAYMENTS_API_KEY', 'NOWPAYMENTS_HMAC_KEY',
-        'FLW_SECRET_KEY', 'FLW_SECRET_HASH'
-    ]
+    # Require SECRET_KEY in production
+    if not os.environ.get('SECRET_KEY'):
+        raise ValueError("SECRET_KEY environment variable is required in production")
     
-    for key in required_keys:
-        if not os.environ.get(key):
-            raise ValueError(f"{key} environment variable is required in production")
+    # Optional payment keys in production (can be added later)
+    # required_keys = [
+    #     'NOWPAYMENTS_API_KEY', 'NOWPAYMENTS_HMAC_KEY',
+    #     'FLW_SECRET_KEY', 'FLW_SECRET_HASH'
+    # ]
+    # 
+    # for key in required_keys:
+    #     if not os.environ.get(key):
+    #         raise ValueError(f"{key} environment variable is required in production")
 
 
 class TestingConfig(Config):
