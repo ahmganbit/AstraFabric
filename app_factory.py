@@ -9,7 +9,6 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from flask_talisman import Talisman
 from flask_wtf.csrf import CSRFProtect
 from config import config
 from models import db
@@ -47,11 +46,11 @@ def create_app(config_name=None):
     if not app.config.get('DEBUG'):
         csrf.init_app(app)
     
-    # Configure security headers (only in production)
-    if not app.config.get('DEBUG'):
-        talisman_config = app.config.get('TALISMAN_CONFIG', {})
-        if talisman_config:
-            Talisman(app, **talisman_config)
+    # Skip Talisman for now - add manual security headers instead
+    # if not app.config.get('DEBUG'):
+    #     talisman_config = app.config.get('TALISMAN_CONFIG', {})
+    #     if talisman_config:
+    #         Talisman(app, **talisman_config)
     
     # Register error handlers
     register_error_handlers(app)
@@ -193,24 +192,25 @@ def configure_hooks(app):
             'ip_address': request.remote_addr,
             'user_agent': request.headers.get('User-Agent', '')[:200]  # Truncate long user agents
         })
-        
-        # Security headers for all responses
-        if not app.config.get('DEBUG'):
-            # Force HTTPS in production (but allow Render's proxy)
-            if not request.is_secure and request.headers.get('X-Forwarded-Proto') != 'https':
-                # Allow health checks and local development
-                if request.path not in ['/health', '/'] and not request.remote_addr.startswith('127.'):
-                    return jsonify({'error': 'HTTPS required'}), 400
     
     @app.after_request
     def after_request(response):
-        """After request hook for security headers."""
+        """After request hook for manual security headers."""
         
-        # Add security headers if not already set
+        # Add manual security headers (since we disabled Talisman)
         if not app.config.get('DEBUG'):
-            response.headers.setdefault('X-Content-Type-Options', 'nosniff')
-            response.headers.setdefault('X-Frame-Options', 'DENY')
-            response.headers.setdefault('X-XSS-Protection', '1; mode=block')
+            response.headers['X-Content-Type-Options'] = 'nosniff'
+            response.headers['X-Frame-Options'] = 'DENY'
+            response.headers['X-XSS-Protection'] = '1; mode=block'
+            response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+            response.headers['Content-Security-Policy'] = (
+                "default-src 'self'; "
+                "script-src 'self' 'unsafe-inline' cdn.jsdelivr.net; "
+                "style-src 'self' 'unsafe-inline' cdn.jsdelivr.net fonts.googleapis.com; "
+                "font-src 'self' fonts.gstatic.com; "
+                "img-src 'self' data:; "
+                "connect-src 'self'"
+            )
         
         # Log response details
         app.logger.info('Response sent', extra={
