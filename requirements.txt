@@ -1,46 +1,50 @@
-# AstraFabric Platform Dependencies - Production Ready
-# requirements.txt for Render.com deployment
-
-# Web Framework
+# Flask
 Flask==2.3.3
-Flask-CORS==4.0.0
-Flask-SQLAlchemy==3.1.1
-Flask-WTF==1.1.1
-Flask-Limiter==3.5.0
-
-# Production WSGI Server
-gunicorn==21.2.0
-
+Flask-Cors==4.0.0
 # Database
+Flask-SQLAlchemy==3.0.5
+# Form
+Flask-WTF==1.1.1
+# Rate Limiting
+Flask-Limiter==3.5.0
+# Gunicorn
+gunicorn==21.2.0
+# psycopg2
 psycopg2-binary==2.9.7
-SQLAlchemy==2.0.36
+# SQLAlchemy
+SQLAlchemy==2.0.19
+# Flask-Migrate
 Flask-Migrate==4.0.5
-
-# Security & Authentication
+# PyJWT
 PyJWT==2.8.0
+# Bcrypt
 bcrypt==4.0.1
+# Cryptography
 cryptography==41.0.4
-Flask-Talisman==1.1.0
+# Talisman
+flask-talisman==1.1.0
+# Passlib
 passlib==1.7.4
+# Argon2
 argon2-cffi==23.1.0
-
-# API & JSON
+# Requests
 requests==2.31.0
+# Marshmallow
 marshmallow==3.20.1
-
-# Background Tasks
+# Celery
 celery==5.3.1
+# Redis
 redis==4.6.0
-
-# Monitoring & Logging
+# Dotenv
 python-dotenv==1.0.0
+# Structlog
 structlog==23.1.0
-
-# Testing & Quality
+# Tests
 pytest==7.4.2
 pytest-flask==1.2.0
+# Safety
 safety==2.3.5
-
-# Utilities
+# Dateutil
 python-dateutil==2.8.2
+# Pytz
 pytz==2023.3
