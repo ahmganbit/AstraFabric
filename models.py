@@ -2,6 +2,7 @@
 # models.py - SQLAlchemy models with security best practices
 
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import Numeric
 from datetime import datetime
 import uuid
 from enum import Enum
@@ -71,7 +72,7 @@ class Subscription(db.Model):
     start_date = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     end_date = db.Column(db.DateTime)
     billing_cycle = db.Column(db.String(20), default='monthly', nullable=False)  # monthly, yearly
-    amount = db.Column(db.Decimal(10, 2), nullable=False)
+    amount = db.Column(Numeric(10, 2), nullable=False)
     currency = db.Column(db.String(3), default='USD', nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -109,9 +110,9 @@ class Payment(db.Model):
     reference = db.Column(db.String(255), unique=True, nullable=False, index=True)
     
     # Amount and currency
-    amount = db.Column(db.Decimal(10, 2), nullable=False)
+    amount = db.Column(Numeric(10, 2), nullable=False)
     currency = db.Column(db.String(10), nullable=False)
-    exchange_rate = db.Column(db.Decimal(15, 8))  # For crypto payments
+    exchange_rate = db.Column(Numeric(15, 8))  # For crypto payments
     
     # Status tracking
     status = db.Column(db.Enum(PaymentStatus), default=PaymentStatus.PENDING, nullable=False, index=True)
