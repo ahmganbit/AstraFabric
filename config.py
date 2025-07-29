@@ -25,9 +25,13 @@ class Config:
         # Fallback to SQLite for development/free tier
         DATABASE_URL = 'sqlite:///astrafabric_secure.db'
     
+    # Set SQLALCHEMY_DATABASE_URI for Flask-SQLAlchemy
+    SQLALCHEMY_DATABASE_URI = DATABASE_URL
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    
     # Payment Gateway Configuration
     NOWPAYMENTS_API_KEY = os.environ.get('NOWPAYMENTS_API_KEY')
-    NOWPAYMENTS_HMAC_KEY = os.environ.get('NOWPAYMENTS_HMAC_KEY')
+    NOWPAYMENTS_HMAC_KEY = os.environ.get('NOWPAYMENTS_HMAC_KEY')  # Optional - can be added later
     FLW_PUBLIC_KEY = os.environ.get('FLW_PUBLIC_KEY')
     FLW_SECRET_KEY = os.environ.get('FLW_SECRET_KEY')
     FLW_SECRET_HASH = os.environ.get('FLW_SECRET_HASH')
@@ -87,6 +91,7 @@ class TestingConfig(Config):
     """Testing configuration."""
     TESTING = True
     DATABASE_URL = 'sqlite:///:memory:'
+    SQLALCHEMY_DATABASE_URI = DATABASE_URL
     SESSION_COOKIE_SECURE = False
     WTF_CSRF_ENABLED = False  # Disable CSRF for testing
 
