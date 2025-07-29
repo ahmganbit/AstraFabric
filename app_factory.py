@@ -46,7 +46,9 @@ def create_app(config_name=None):
     
     # Configure security headers (only in production)
     if not app.config.get('DEBUG'):
-        Talisman(app, **app.config.get('SECURITY_HEADERS', {}))
+        talisman_config = app.config.get('TALISMAN_CONFIG', {})
+        if talisman_config:
+            Talisman(app, **talisman_config)
     
     # Register error handlers
     register_error_handlers(app)
@@ -140,15 +142,17 @@ def register_blueprints(app):
     
     # Import blueprints here to avoid circular imports
     from routes.main import main_bp
-    from routes.auth import auth_bp
-    from routes.payment import payment_bp
-    from routes.api import api_bp
     
     # Register blueprints
     app.register_blueprint(main_bp)
-    app.register_blueprint(auth_bp, url_prefix='/auth')
-    app.register_blueprint(payment_bp, url_prefix='/payment')
-    app.register_blueprint(api_bp, url_prefix='/api/v1')
+    
+    # Note: Other blueprints (auth, payment, api) will be added when they exist
+    # from routes.auth import auth_bp
+    # from routes.payment import payment_bp
+    # from routes.api import api_bp
+    # app.register_blueprint(auth_bp, url_prefix='/auth')
+    # app.register_blueprint(payment_bp, url_prefix='/payment')
+    # app.register_blueprint(api_bp, url_prefix='/api/v1')
 
 
 def configure_hooks(app):

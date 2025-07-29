@@ -48,20 +48,21 @@ class Config:
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=15)
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
     
-    # Security Headers
-    SECURITY_HEADERS = {
-        'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
-        'X-Content-Type-Options': 'nosniff',
-        'X-Frame-Options': 'DENY',
-        'X-XSS-Protection': '1; mode=block',
-        'Content-Security-Policy': (
-            "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' cdn.jsdelivr.net; "
-            "style-src 'self' 'unsafe-inline' cdn.jsdelivr.net fonts.googleapis.com; "
-            "font-src 'self' fonts.gstatic.com; "
-            "img-src 'self' data:; "
-            "connect-src 'self'"
-        )
+    # Talisman Security Configuration (using correct parameter names)
+    TALISMAN_CONFIG = {
+        'strict_transport_security': True,
+        'strict_transport_security_max_age': 31536000,
+        'strict_transport_security_include_subdomains': True,
+        'content_type_options': True,
+        'frame_options': 'DENY',
+        'content_security_policy': {
+            'default-src': "'self'",
+            'script-src': "'self' 'unsafe-inline' cdn.jsdelivr.net",
+            'style-src': "'self' 'unsafe-inline' cdn.jsdelivr.net fonts.googleapis.com",
+            'font-src': "'self' fonts.gstatic.com",
+            'img-src': "'self' data:",
+            'connect-src': "'self'"
+        }
     }
 
 
@@ -69,7 +70,7 @@ class DevelopmentConfig(Config):
     """Development configuration."""
     DEBUG = True
     SESSION_COOKIE_SECURE = False  # Allow HTTP in development
-    SECURITY_HEADERS = {}  # Disable strict headers in development
+    TALISMAN_CONFIG = {}  # Disable strict headers in development
 
 
 class ProductionConfig(Config):
@@ -94,6 +95,7 @@ class TestingConfig(Config):
     SQLALCHEMY_DATABASE_URI = DATABASE_URL
     SESSION_COOKIE_SECURE = False
     WTF_CSRF_ENABLED = False  # Disable CSRF for testing
+    TALISMAN_CONFIG = {}  # Disable strict headers in testing
 
 
 # Configuration mapping
