@@ -48,12 +48,12 @@ class Config:
     
     # Talisman Security Configuration (using correct parameter names)
     TALISMAN_CONFIG = {
+        'force_https': True,
         'strict_transport_security': True,
         'strict_transport_security_max_age': 31536000,
         'strict_transport_security_include_subdomains': True,
-        'x_content_type_options': True,
-        'x_frame_options': 'DENY',
-        'x_xss_protection': True,
+        'content_type_options': True,
+        'frame_options': 'DENY',
         'content_security_policy': {
             'default-src': "'self'",
             'script-src': "'self' 'unsafe-inline' cdn.jsdelivr.net",
