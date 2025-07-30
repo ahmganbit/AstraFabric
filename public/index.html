@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AstraFabric - Infrastructure Monitoring</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <!-- Load Three.js first -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+    <!-- 3D Background Container -->
+    <div id="web3-background"></div>
+    
+    <!-- Main Container -->
+    <div class="web3-container">
+        <!-- Header -->
+        <header class="web3-header">
+            <div class="logo-container">
+                <img src="ASTRAFRABRIC-LOGO.png" alt="AstraFabric" class="logo">
+                <span class="brand-text">AstraFabric</span>
+            </div>
+            <nav class="main-nav">
+                <a href="#features">Features</a>
+                <a href="#pricing">Pricing</a>
+                <a href="#about">About</a>
+                <button class="cta-button" onclick="showPaymentModal()">Get Started</button>
+            </nav>
+        </header>
+
+        <!-- Hero Section -->
+        <section class="hero">
+            <div class="hero-content">
+                <h1 class="hero-title">
+                    <span class="gradient-text">Worldwide Security Guardian</span>
+                    <span class="subtitle">Protecting Your Digital Assets Globally</span>
+                </h1>
+                <p class="hero-description">
+                    Deploy once, protect forever. AI-powered security that works while you sleep.
+                    Accept payments in any currency or cryptocurrency from anywhere in the world.
+                </p>
+                <div class="hero-actions">
+                    <button class="primary-cta" onclick="showPaymentModal()">Start Free Trial</button>
+                    <button class="secondary-cta" onclick="showDemo()">Watch Demo</button>
+                </div>
+                <div class="payment-logos">
+                    <span>Pay with:</span>
+                    <img src="flutterwave-icon.png" alt="Flutterwave">
+                    <img src="crypto-icons.png" alt="Cryptocurrency">
+                </div>
+            </div>
+            <div class="hero-visual">
+                <div id="security-shield"></div>
+            </div>
+        </section>
+
+        <!-- Features Section -->
+        <section id="features" class="features">
+            <h2 class="section-title">Global Protection Features</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🌍</div>
+                    <h3>Worldwide Coverage</h3>
+                    <p>Protect your assets across all regions with our global infrastructure.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">💱</div>
+                    <h3>Multi-Currency Support</h3>
+                    <p>Accept payments in 100+ currencies with automatic conversion to USD.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">₿</div>
+                    <h3>Cryptocurrency Ready</h3>
+                    <p>Accept 50+ cryptocurrencies including Bitcoin, Ethereum, and stablecoins.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🤖</div>
+                    <h3>AI-Powered Security</h3>
+                    <p>Advanced threat detection and autonomous response capabilities.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Pricing Section -->
+        <section id="pricing" class="pricing">
+            <h2 class="section-title">Simple, Transparent Pricing</h2>
+            <div class="pricing-container">
+                <div class="currency-selector">
+                    <label>Select Currency:</label>
+                    <select id="currency-select" onchange="updatePrices()">
+                        <option value="USD">USD ($)</option>
+                        <option value="EUR">EUR (€)</option>
+                        <option value="GBP">GBP (£)</option>
+                        <option value="NGN">NGN (₦)</option>
+                        <option value="CAD">CAD (C$)</option>
+                        <option value="AUD">AUD (A$)</option>
+                    </select>
+                </div>
+                
+                <div class="pricing-grid">
+                    <div class="pricing-card">
+                        <h3>Starter</h3>
+                        <div class="price">
+                            <span class="currency-symbol">$</span>
+                            <span class="amount" data-usd="29">29</span>
+                            <span class="period">/month</span>
+                        </div>
+                        <ul>
+                            <li>Up to 5 websites</li>
+                            <li>Basic threat protection</li>
+                            <li>Email alerts</li>
+                            <li>Standard support</li>
+                        </ul>
+                        <button class="select-plan" data-plan="starter">Select Plan</button>
+                    </div>
+                    
+                    <div class="pricing-card popular">
+                        <div class="popular-badge">Most Popular</div>
+                        <h3>Professional</h3>
+                        <div class="price">
+                            <span class="currency-symbol">$</span>
+                            <span class="amount" data-usd="79">79</span>
+                            <span class="period">/month</span>
+                        </div>
+                        <ul>
+                            <li>Up to 20 websites</li>
+                            <li>Advanced AI protection</li>
+                            <li>Automated threat response</li>
+                            <li>Priority support</li>
+                        </ul>
+                        <button class="select-plan" data-plan="professional">Select Plan</button>
+                    </div>
+                    
+                    <div class="pricing-card">
+                        <h3>Enterprise</h3>
+                        <div class="price">
+                            <span class="currency-symbol">$</span>
+                            <span class="amount" data-usd="199">199</span>
+                            <span class="period">/month</span>
+                        </div>
+                        <ul>
+                            <li>Unlimited websites</li>
+                            <li>Custom security rules</li>
+                            <li>Dedicated support</li>
+                            <li>White-label option</li>
+                        </ul>
+                        <button class="select-plan" data-plan="enterprise">Select Plan</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Payment Modal -->
+        <div id="payment-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-logo">
+                        <img src="ASTRAFRABRIC-BRAND.png" alt="AstraFabric">
+                    </div>
+                    <h2>Complete Your Subscription</h2>
+                    <span class="close-modal">&times;</span>
+                </div>
+                
+                <div class="payment-steps">
+                    <div class="step active" data-step="1">
+                        <div class="step-number">1</div>
+                        <div class="step-title">Select Plan</div>
+                    </div>
+                    <div class="step" data-step="2">
+                        <div class="step-number">2</div>
+                        <div class="step-title">Payment Method</div>
+                    </div>
+                    <div class="step" data-step="3">
+                        <div class="step-number">3</div>
+                        <div class="step-title">Complete Payment</div>
+                    </div>
+                </div>
+                
+                <div class="payment-content">
+                    <!-- Step 1: Plan Selection -->
+                    <div class="payment-step active" id="step-1">
+                        <div class="plan-selection">
+                            <div class="plan-card" data-plan="starter">
+                                <h3>Starter</h3>
+                                <div class="price">
+                                    <span class="currency-symbol">$</span>
+                                    <span class="amount" data-usd="29">29</span>
+                                    <span class="period">/month</span>
+                                </div>
+                                <button class="select-plan-btn">Select</button>
+                            </div>
+                            
+                            <div class="plan-card popular" data-plan="professional">
+                                <div class="popular-badge">Most Popular</div>
+                                <h3>Professional</h3>
+                                <div class="price">
+                                    <span class="currency-symbol">$</span>
+                                    <span class="amount" data-usd="79">79</span>
+                                    <span class="period">/month</span>
+                                </div>
+                                <button class="select-plan-btn">Select</button>
+                            </div>
+                            
+                            <div class="plan-card" data-plan="enterprise">
+                                <h3>Enterprise</h3>
+                                <div class="price">
+                                    <span class="currency-symbol">$</span>
+                                    <span class="amount" data-usd="199">199</span>
+                                    <span class="period">/month</span>
+                                </div>
+                                <button class="select-plan-btn">Select</button>
+                            </div>
+                        </div>
+                        
+                        <div class="currency-selector">
+                            <label>Select Currency:</label>
+                            <select id="modal-currency-select" onchange="updateModalPrices()">
+                                <option value="USD">USD ($)</option>
+                                <option value="EUR">EUR (€)</option>
+                                <option value="GBP">GBP (£)</option>
+                                <option value="NGN">NGN (₦)</option>
+                                <option value="CAD">CAD (C$)</option>
+                                <option value="AUD">AUD (A$)</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Step 2: Payment Method Selection -->
+                    <div class="payment-step" id="step-2">
+                        <div class="payment-methods">
+                            <h3>Select Payment Method</h3>
+                            <div class="method-options">
+                                <div class="method-card" data-method="flutterwave">
+                                    <div class="method-header">
+                                        <img src="flutterwave-icon.png" alt="Flutterwave">
+                                        <h4>Flutterwave</h4>
+                                    </div>
+                                    <p>Credit/Debit Cards, Bank Transfer, Mobile Money</p>
+                                    <div class="supported-regions">
+                                        <span>Worldwide</span>
+                                        <span>Africa</span>
+                                        <span>Europe</span>
+                                    </div>
+                                    <button class="select-method-btn">Select</button>
+                                </div>
+                                
+                                <div class="method-card" data-method="crypto">
+                                    <div class="method-header">
+                                        <img src="crypto-icon.png" alt="Cryptocurrency">
+                                        <h4>Cryptocurrency</h4>
+                                    </div>
+                                    <p>Bitcoin, Ethereum, USDT, and 50+ more</p>
+                                    <div class="supported-regions">
+                                        <span>Worldwide</span>
+                                        <span>Decentralized</span>
+                                    </div>
+                                    <button class="select-method-btn">Select</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Step 3: Payment Details -->
+                    <div class="payment-step" id="step-3">
+                        <div class="payment-details">
+                            <h3>Complete Your Payment</h3>
+                            
+                            <div class="order-summary">
+                                <div class="summary-row">
+                                    <span>Plan:</span>
+                                    <span id="summary-plan">-</span>
+                                </div>
+                                <div class="summary-row">
+                                    <span>Currency:</span>
+                                    <span id="summary-currency">-</span>
+                                </div>
+                                <div class="summary-row">
+                                    <span>Payment Method:</span>
+                                    <span id="summary-method">-</span>
+                                </div>
+                                <div class="summary-row total">
+                                    <span>Total:</span>
+                                    <span id="summary-total">-</span>
+                                </div>
+                            </div>
+                            
+                            <form id="payment-form">
+                                <div class="form-group">
+                                    <label for="email">Email Address</label>
+                                    <input type="email" id="email" required>
+                                </div>
+                                
+                                <div id="payment-method-details">
+                                    <!-- Dynamic content based on selected payment method -->
+                                </div>
+                                
+                                <button type="submit" class="submit-payment">
+                                    Complete Payment
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-navigation">
+                    <button class="prev-step" id="prev-step" onclick="changeStep(-1)">Previous</button>
+                    <button class="next-step" id="next-step" onclick="changeStep(1)">Next</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
