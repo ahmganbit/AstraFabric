@@ -42,7 +42,8 @@ def home():
                         <li class="nav-item"><a class="nav-link" href="#features">Features</a></li>
                         <li class="nav-item"><a class="nav-link" href="#pricing">Pricing</a></li>
                         <li class="nav-item"><a class="nav-link" href="/contact">Contact</a></li>
-                        <li class="nav-item"><a class="nav-link btn btn-primary ms-2 px-3" href="/subscribe">Get Started</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/dashboard/login">Dashboard</a></li>
+                        <li class="nav-item"><a class="nav-link btn btn-primary ms-2 px-3" href="/payment/subscribe">Get Started</a></li>
                     </ul>
                 </div>
             </div>
@@ -56,7 +57,7 @@ def home():
                         <h1 class="display-4 fw-bold mb-4">Complete Security Autopilot</h1>
                         <p class="lead mb-4">24/7 autonomous threat detection with 99% automation. Our AI-powered platform monitors your digital infrastructure continuously and responds to threats automatically.</p>
                         <div class="d-flex gap-3">
-                            <a href="/subscribe" class="btn btn-light btn-lg">Start Free Trial</a>
+                            <a href="/payment/subscribe" class="btn btn-light btn-lg">Start Free Trial</a>
                             <a href="#features" class="btn btn-outline-light btn-lg">Learn More</a>
                         </div>
                     </div>
@@ -132,7 +133,7 @@ def home():
                                     <li class="mb-2">✓ Monthly reports</li>
                                     <li class="mb-2">✓ 24/7 monitoring</li>
                                 </ul>
-                                <a href="/subscribe?plan=essential" class="btn btn-outline-primary">Get Started</a>
+                                <a href="/payment/subscribe?plan=essential" class="btn btn-outline-primary">Get Started</a>
                             </div>
                         </div>
                     </div>
@@ -151,7 +152,7 @@ def home():
                                     <li class="mb-2">✓ Vulnerability scanning</li>
                                     <li class="mb-2">✓ API access</li>
                                 </ul>
-                                <a href="/subscribe?plan=professional" class="btn btn-primary">Get Started</a>
+                                <a href="/payment/subscribe?plan=professional" class="btn btn-primary">Get Started</a>
                             </div>
                         </div>
                     </div>
@@ -167,7 +168,7 @@ def home():
                                     <li class="mb-2">✓ Priority support</li>
                                     <li class="mb-2">✓ Custom integrations</li>
                                 </ul>
-                                <a href="/subscribe?plan=enterprise" class="btn btn-outline-primary">Get Started</a>
+                                <a href="/payment/subscribe?plan=enterprise" class="btn btn-outline-primary">Get Started</a>
                             </div>
                         </div>
                     </div>
@@ -227,13 +228,9 @@ def home():
 
 
 @main_bp.route('/subscribe')
-def subscribe():
-    """Subscription page placeholder."""
-    return render_template_string('''
-    <h1>Subscribe to AstraFabric</h1>
-    <p>Subscription functionality coming soon!</p>
-    <a href="/">← Back to Home</a>
-    ''')
+def subscribe_redirect():
+    """Redirect to payment subscribe page."""
+    return redirect('/payment/subscribe')
 
 
 @main_bp.route('/contact', methods=['GET', 'POST'])

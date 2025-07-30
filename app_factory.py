@@ -46,12 +46,6 @@ def create_app(config_name=None):
     if not app.config.get('DEBUG'):
         csrf.init_app(app)
     
-    # Skip Talisman for now - add manual security headers instead
-    # if not app.config.get('DEBUG'):
-    #     talisman_config = app.config.get('TALISMAN_CONFIG', {})
-    #     if talisman_config:
-    #         Talisman(app, **talisman_config)
-    
     # Register error handlers
     register_error_handlers(app)
     
@@ -66,6 +60,10 @@ def create_app(config_name=None):
         try:
             db.create_all()
             app.logger.info('Database tables created successfully')
+            
+            # Initialize sample data for demo
+            init_sample_data()
+            
         except Exception as e:
             app.logger.error(f'Database initialization error: {e}')
     
@@ -158,24 +156,29 @@ def register_blueprints(app):
     except ImportError as e:
         app.logger.error(f'Failed to import main blueprint: {e}')
     
-    # Additional blueprints can be added here when they exist
-    # try:
-    #     from routes.auth import auth_bp
-    #     app.register_blueprint(auth_bp, url_prefix='/auth')
-    # except ImportError:
-    #     app.logger.warning('Auth blueprint not found, skipping')
+    try:
+        # Import and register payment blueprint
+        from routes.payment import payment_bp
+        app.register_blueprint(payment_bp, url_prefix='/payment')
+        app.logger.info('Payment blueprint registered successfully')
+    except ImportError as e:
+        app.logger.error(f'Failed to import payment blueprint: {e}')
     
-    # try:
-    #     from routes.payment import payment_bp
-    #     app.register_blueprint(payment_bp, url_prefix='/payment')
-    # except ImportError:
-    #     app.logger.warning('Payment blueprint not found, skipping')
+    try:
+        # Import and register webhook blueprint
+        from routes.webhooks import webhook_bp
+        app.register_blueprint(webhook_bp, url_prefix='/webhooks')
+        app.logger.info('Webhook blueprint registered successfully')
+    except ImportError as e:
+        app.logger.error(f'Failed to import webhook blueprint: {e}')
     
-    # try:
-    #     from routes.api import api_bp
-    #     app.register_blueprint(api_bp, url_prefix='/api/v1')
-    # except ImportError:
-    #     app.logger.warning('API blueprint not found, skipping')
+    try:
+        # Import and register dashboard blueprint
+        from routes.dashboard import dashboard_bp
+        app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
+        app.logger.info('Dashboard blueprint registered successfully')
+    except ImportError as e:
+        app.logger.error(f'Failed to import dashboard blueprint: {e}')
 
 
 def configure_hooks(app):
@@ -219,6 +222,73 @@ def configure_hooks(app):
         })
         
         return response
+
+
+def init_sample_data():
+    """Initialize sample security monitoring data for demo."""
+    from models import Customer, SecurityEvent, VulnerabilityScan
+    
+    # Check if data already exists
+    if Customer.query.first():
+        return
+    
+    # Create sample customer
+    customer = Customer(
+        email='demo@astrafabric.com',
+        name='Demo Customer',
+        company='AstraFabric Demo',
+        phone='+1234567890'
+    )
+    db.session.add(customer)
+    db.session.commit()
+    
+    # Create sample security events
+    events = [
+        {
+            'event_type': 'malware_detected',
+            'severity': 'high',
+            'description': 'Malware detected on endpoint workstation-001',
+            'source_ip': '192.168.1.100',
+            'target_system': 'workstation-001'
+        },
+        {
+            'event_type': 'failed_login',
+            'severity': 'medium',
+            'description': 'Multiple failed login attempts detected',
+            'source_ip': '203.0.113.42',
+            'target_system': 'web-server-01'
+        },
+        {
+            'event_type': 'suspicious_network_traffic',
+            'severity': 'low',
+            'description': 'Unusual outbound network traffic pattern',
+            'source_ip': '192.168.1.50',
+            'target_system': 'firewall'
+        }
+    ]
+    
+    for event_data in events:
+        event = SecurityEvent(
+            customer_id=customer.id,
+            **event_data
+        )
+        db.session.add(event)
+    
+    # Create sample vulnerability scan
+    scan = VulnerabilityScan(
+        customer_id=customer.id,
+        scan_type='network',
+        target='192.168.1.0/24',
+        status='completed',
+        vulnerabilities_found=5,
+        critical_count=1,
+        high_count=2,
+        medium_count=2,
+        low_count=0
+    )
+    db.session.add(scan)
+    
+    db.session.commit()
 
 
 # Create the application instance for gunicorn
