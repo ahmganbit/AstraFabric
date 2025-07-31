@@ -51,9 +51,12 @@ class CurrencyConverter {
 // Flutterwave Integration
 class FlutterwaveGateway {
     static async initializePayment(email, amount, currency) {
+        // Check for required API keys
+        if (!config.flutterwave.secretKey || !config.flutterwave.publicKey) {
+            return { success: false, error: 'Flutterwave API keys are not set. Please contact support.' };
+        }
         try {
             const usdAmount = await CurrencyConverter.convertToUSD(amount, currency);
-            
             const response = await axios.post(
                 'https://api.flutterwave.com/v3/payments',
                 {
@@ -67,7 +70,7 @@ class FlutterwaveGateway {
                     customizations: {
                         title: 'AstraFabric Security',
                         description: 'Premium Security Subscription',
-                        logo: 'https://astrafabric.com/ASTRAFRABRIC-LOGO.png'
+                        logo: 'https://astrafabric.com/static/images2/logo.png'
                     },
                     payment_options: 'card, banktransfer, ussd, mpesa, mobilemoney'
                 },
@@ -78,7 +81,6 @@ class FlutterwaveGateway {
                     }
                 }
             );
-            
             return {
                 success: true,
                 gateway: 'flutterwave',
@@ -86,7 +88,7 @@ class FlutterwaveGateway {
             };
         } catch (error) {
             console.error('Flutterwave payment failed:', error);
-            return { success: false, error: error.message };
+            return { success: false, error: error.response?.data?.message || error.message };
         }
     }
     
@@ -117,9 +119,12 @@ class FlutterwaveGateway {
 // NOWPayments Integration
 class NOWPaymentsGateway {
     static async initializePayment(amount, currency, cryptoCurrency) {
+        // Check for required API key
+        if (!config.nowpayments.apiKey) {
+            return { success: false, error: 'NOWPayments API key is not set. Please contact support.' };
+        }
         try {
             const usdAmount = await CurrencyConverter.convertToUSD(amount, currency);
-            
             const response = await axios.post(
                 'https://api.nowpayments.io/v1/payment',
                 {
@@ -139,7 +144,6 @@ class NOWPaymentsGateway {
                     }
                 }
             );
-            
             return {
                 success: true,
                 gateway: 'nowpayments',
@@ -147,7 +151,7 @@ class NOWPaymentsGateway {
             };
         } catch (error) {
             console.error('NOWPayments payment failed:', error);
-            return { success: false, error: error.message };
+            return { success: false, error: error.response?.data?.message || error.message };
         }
     }
     

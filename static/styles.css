@@ -69,6 +69,7 @@ body {
 .logo {
     height: 40px;
     filter: drop-shadow(0 0 10px rgba(249, 115, 22, 0.3));
+    content: url('images2/logo.png');
 }
 
 .brand-text {
@@ -528,6 +529,7 @@ body {
     height: 60px;
     margin-bottom: 1rem;
     filter: drop-shadow(0 0 10px rgba(249, 115, 22, 0.3));
+    content: url('images2/logo.png');
 }
 
 .modal-header h2 {
