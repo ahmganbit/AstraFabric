@@ -9,21 +9,21 @@
   },
   "dependencies": {
     "express": "^4.18.2",
-    "redis": "^4.6.7",
-    "axios": "^1.4.0",
-    "nodemailer": "^6.9.3",
-    "twilio": "^4.14.0",
-    "slack-webhook": "^1.0.0",
-    "ssh2": "^1.14.0",
-    "mysql2": "^3.6.0",
     "socket.io": "^4.7.2",
-    "three": "^0.153.0",
-    "crypto": "^1.0.1"
+    "dotenv": "^16.3.1",
+    "axios": "^1.6.0",
+    "redis": "^4.6.7",
+    "nodemailer": "^6.9.7",
+    "twilio": "^4.19.3",
+    "slack-webhook": "^1.0.0",
+    "ssh2": "^1.15.0",
+    "mysql2": "^3.6.3",
+    "three": "^0.161.0"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "nodemon": "^3.0.2"
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=18.0.0"
   }
 }
