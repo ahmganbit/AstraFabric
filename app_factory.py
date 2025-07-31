@@ -155,23 +155,9 @@ def register_blueprints(app):
         app.logger.info('Main blueprint registered successfully')
     except ImportError as e:
         app.logger.error(f'Failed to import main blueprint: {e}')
-    
-    try:
-        # Import and register payment blueprint
-        from routes.payment import payment_bp
-        app.register_blueprint(payment_bp, url_prefix='/payment')
-        app.logger.info('Payment blueprint registered successfully')
-    except ImportError as e:
-        app.logger.error(f'Failed to import payment blueprint: {e}')
-    
-    try:
-        # Import and register webhook blueprint
-        from routes.webhooks import webhook_bp
-        app.register_blueprint(webhook_bp, url_prefix='/webhooks')
-        app.logger.info('Webhook blueprint registered successfully')
-    except ImportError as e:
-        app.logger.error(f'Failed to import webhook blueprint: {e}')
-    
+
+    # If you add blueprints for payments or webhook in the future, add them here with correct file/blueprint names
+
     try:
         # Import and register dashboard blueprint
         from routes.dashboard import dashboard_bp
