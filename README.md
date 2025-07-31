@@ -44,20 +44,29 @@ astrafabric-platform/
 ## Local Development
 
 1. **Clone Repository**
-   ```bash
-   git clone https://github.com/[username]/astrafabric-platform.git
-   cd astrafabric-platform
-   ```
 
-2. **Install Dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+## Deployment Start Command (Render.com)
 
-3. **Set Environment Variables**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
+Use this as your start command:
+
+```
+gunicorn --config gunicorn.conf.py app_factory:create_app()
+```
+
+---
+
+Example structure:
+```
+astrafabric-platform/
+├── app_factory.py                # Main application factory
+├── requirements.txt              # Python dependencies
+├── render.yaml                   # Render.com deployment config
+├── gunicorn.conf.py              # Gunicorn config
+├── routes/                       # Flask blueprints
+├── models/                       # SQLAlchemy models
+├── static/                       # Static files
+├── templates/                    # Jinja templates
+```
    ```
 
 4. **Run Platform**

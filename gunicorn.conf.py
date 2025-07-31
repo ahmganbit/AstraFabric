@@ -18,8 +18,6 @@ keepalive = 2
 max_requests = 1000
 max_requests_jitter = 50
 
-# Application - Fixed WSGI module reference
-wsgi_module = "app_factory:app"
 pythonpath = "."
 
 # Logging
