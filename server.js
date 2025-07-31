@@ -2,26 +2,50 @@ const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
-const InfrastructureMonitor = require('./src/infrastructure-monitoring');
-const monitoringRoutes = require('./src/routes/monitoring');
-const UnifiedPaymentGateway = require('./src/unified-payment-gateway');
+require('dotenv').config();
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
-// Initialize monitoring
-const monitor = new InfrastructureMonitor();
-monitor.io = io;
+// Error handling for uncaught exceptions
+process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
 
 // Middleware
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'static')));
 
-// Payment routes
+// Health check endpoint - responds immediately
+app.get('/health', (req, res) => {
+    res.status(200).json({
+        status: 'OK',
+        timestamp: new Date().toISOString(),
+        service: 'AstraFabric',
+        uptime: process.uptime()
+    });
+});
+
+// Root endpoint
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'static', 'index.html'));
+});
+
+// Simple test endpoint
+app.get('/test', (req, res) => {
+    res.json({ message: 'AstraFabric is running!' });
+});
+
+// Payment routes with error handling
 app.post('/api/initialize-payment', async (req, res) => {
     try {
         const { email, amount, currency, paymentMethod, cryptoCurrency } = req.body;
+        const UnifiedPaymentGateway = require('./src/unified-payment-gateway');
         const result = await UnifiedPaymentGateway.initializePayment(
             email, 
             amount, 
@@ -36,64 +60,39 @@ app.post('/api/initialize-payment', async (req, res) => {
     }
 });
 
-// Payment callback endpoints
-app.get('/payment/callback/flutterwave', async (req, res) => {
-    const { transaction_id } = req.query;
-    
-    try {
-        const result = await UnifiedPaymentGateway.verifyPayment('flutterwave', transaction_id);
-        
-        if (result.success && result.status === 'successful') {
-            // Activate user subscription
-            await activateUserSubscription(result);
-            res.redirect('/payment/success');
-        } else {
-            res.redirect('/payment/failed');
-        }
-    } catch (error) {
-        console.error('Flutterwave callback failed:', error);
-        res.redirect('/payment/failed');
+// Monitoring routes - only initialize if Redis is available
+let monitoringRoutes;
+try {
+    if (process.env.REDIS_URL) {
+        monitoringRoutes = require('./src/routes/monitoring');
+        app.use('/api/monitoring', monitoringRoutes);
+        console.log('Monitoring routes initialized');
+    } else {
+        console.warn('REDIS_URL not set, monitoring routes disabled');
     }
-});
+} catch (error) {
+    console.error('Failed to initialize monitoring routes:', error);
+}
 
-app.post('/payment/callback/nowpayments', async (req, res) => {
-    const ipnData = req.body;
-    
-    // Verify IPN signature
-    const hmac = require('crypto').createHmac('sha512', process.env.NOWPAYMENTS_IPN_SECRET);
-    hmac.update(JSON.stringify(ipnData));
-    const signature = hmac.digest('hex');
-    
-    if (signature !== req.headers['x-nowpayments-sig']) {
-        return res.status(400).send('Invalid signature');
-    }
-    
-    try {
-        if (ipnData.payment_status === 'finished') {
-            // Activate user subscription
-            await activateUserSubscription({
-                amount: ipnData.price_amount,
-                currency: ipnData.price_currency,
-                email: ipnData.order_id.split('-')[1] // Extract email from order_id
-            });
-        }
-        
-        res.status(200).send('IPN received');
-    } catch (error) {
-        console.error('NOWPayments callback failed:', error);
-        res.status(500).send('Callback processing failed');
-    }
-});
-
-// Monitoring routes
-app.use('/api/monitoring', monitoringRoutes);
-
-// Serve the main application
+// Catch-all route for SPA
 app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, 'static', 'index.html'));
 });
 
-// WebSocket connection for real-time metrics
+// Initialize monitoring only if Redis is available
+let monitor;
+if (process.env.REDIS_URL) {
+    try {
+        const InfrastructureMonitor = require('./src/infrastructure-monitoring');
+        monitor = new InfrastructureMonitor();
+        monitor.io = io;
+        console.log('Infrastructure monitoring initialized successfully');
+    } catch (error) {
+        console.error('Failed to initialize infrastructure monitoring:', error);
+    }
+}
+
+// WebSocket connection
 io.on('connection', (socket) => {
     console.log('Client connected to monitoring dashboard');
     
@@ -107,13 +106,30 @@ io.on('connection', (socket) => {
     });
 });
 
+// Start server with error handling
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`AstraFabric server running on port ${PORT}`);
-});
+
+try {
+    server.listen(PORT, () => {
+        console.log(`🚀 AstraFabric server running on port ${PORT}`);
+        console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+        console.log(`🔗 Health check: http://localhost:${PORT}/health`);
+        console.log(`🌐 Test endpoint: http://localhost:${PORT}/test`);
+        
+        // Log environment variables (without sensitive data)
+        console.log('📋 Environment variables:');
+        console.log(`  NODE_ENV: ${process.env.NODE_ENV || 'not set'}`);
+        console.log(`  PORT: ${PORT}`);
+        console.log(`  REDIS_URL: ${process.env.REDIS_URL ? 'set' : 'not set'}`);
+        console.log(`  FLW_PUBLIC_KEY: ${process.env.FLW_PUBLIC_KEY ? 'set' : 'not set'}`);
+        console.log(`  NOWPAYMENTS_API_KEY: ${process.env.NOWPAYMENTS_API_KEY ? 'set' : 'not set'}`);
+    });
+} catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+}
 
 // Helper function to activate user subscription
 async function activateUserSubscription(paymentData) {
-    // Implement subscription activation logic
     console.log('Activating subscription for:', paymentData);
 }
