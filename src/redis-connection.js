@@ -11,17 +11,13 @@ class RedisConnection {
     try {
       // Use single Redis URL from environment
       const redisUrl = process.env.REDIS_URL;
-      
+      if (!redisUrl) {
+        console.warn('REDIS_URL not set, Redis connection disabled');
+        return;
+      }
       this.client = redis.createClient({
         url: redisUrl
       });
-        const redisUrl = process.env.REDIS_URL;
-        
-        if (!redisUrl) {
-            console.warn('REDIS_URL not set, Redis connection disabled');
-            return;
-        }
-        
       // Promisify methods
       this.getAsync = promisify(this.client.get).bind(this.client);
       this.setAsync = promisify(this.client.set).bind(this.client);
@@ -39,7 +35,7 @@ class RedisConnection {
         console.error('Redis Client Error:', err);
       });
 
-        this.client.on('error', (err) => {
+      this.client.on('connect', () => {
         console.log('Connected to Redis Cloud');
       });
 
