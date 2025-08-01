@@ -19,7 +19,7 @@ process.on('unhandledRejection', (reason, promise) => {
 
 // Middleware
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'static')));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Health check endpoint - responds immediately
 app.get('/health', (req, res) => {
@@ -33,7 +33,7 @@ app.get('/health', (req, res) => {
 
 // Root endpoint
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'static', 'index.html'));
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Simple test endpoint
@@ -76,7 +76,7 @@ try {
 
 // Catch-all route for SPA
 app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'static', 'index.html'));
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Initialize monitoring only if Redis is available
