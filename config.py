@@ -76,9 +76,11 @@ class ProductionConfig(Config):
     """Production configuration."""
     DEBUG = False
     
-    # Require SECRET_KEY in production
-    if not os.environ.get('SECRET_KEY'):
-        raise ValueError("SECRET_KEY environment variable is required in production")
+    def __init__(self):
+        super().__init__()
+        # Check SECRET_KEY only when this config is actually used
+        if not os.environ.get('SECRET_KEY'):
+            raise ValueError("SECRET_KEY environment variable is required in production")
     
     # Optional payment keys in production (can be added later)
     # required_keys = [
